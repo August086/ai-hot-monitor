@@ -924,6 +924,10 @@ body {
   border-color: var(--line);
   background: #090b0e;
   padding: 14px 16px;
+  cursor: text;
+}
+.kw-add {
+  display: block;
 }
 .term-input:focus-within {
   border-color: rgba(198, 255, 61, 0.45);

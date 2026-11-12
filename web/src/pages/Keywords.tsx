@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Keyword } from '../types';
 import { api, relativeTime } from '../api';
 import { Icon, Panel, Toggle } from '../components/Primitives';
@@ -20,6 +20,7 @@ export function Keywords({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState({ term: '', domain: '' });
   const [scanningId, setScanningId] = useState<number | null>(null);
+  const termRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
     try {
@@ -38,8 +39,13 @@ export function Keywords({
   }, [pulse]);
 
   const add = async () => {
+    if (saving) return;
     const value = term.trim();
-    if (!value) return;
+    if (!value) {
+      notify('请先输入关键词', 'error');
+      termRef.current?.focus();
+      return;
+    }
     setSaving(true);
     try {
       await api.createKeyword({ term: value, domain: domain.trim() });
@@ -121,32 +127,40 @@ export function Keywords({
       </div>
 
       <Panel accent="lime" className="terminal-panel" title="添加监控关键词" code="[01]">
-        <div className="term-input">
-          <span className="term-input__prompt">root@neonwatch:~$</span>
-          <span className="term-input__cmd">monitor --add</span>
-          <input
-            value={term}
-            onChange={(event) => setTerm(event.target.value)}
-            onKeyDown={(event) => event.key === 'Enter' && add()}
-            placeholder="关键词，如 DeepSeek / Claude Code / AI 编程"
-            aria-label="关键词"
-            maxLength={60}
-          />
-        </div>
-        <div className="term-sub">
-          <label>
-            <span>范围限定（可选）</span>
+        <form
+          className="kw-add"
+          onSubmit={(event) => {
+            event.preventDefault();
+            add();
+          }}
+        >
+          <label className="term-input">
+            <span className="term-input__prompt">root@neonwatch:~$</span>
+            <span className="term-input__cmd">monitor --add</span>
             <input
-              value={domain}
-              onChange={(event) => setDomain(event.target.value)}
-              placeholder="如：大模型 / 编程工具 / 官方发布"
+              ref={termRef}
+              value={term}
+              onChange={(event) => setTerm(event.target.value)}
+              placeholder="关键词，如 DeepSeek / Claude Code / AI 编程"
+              aria-label="关键词"
               maxLength={60}
             />
           </label>
-          <button type="button" className="btn btn--lime" onClick={add} disabled={saving || !term.trim()}>
-            <Icon name="plus" /> {saving ? '写入中…' : '写入监控表'}
-          </button>
-        </div>
+          <div className="term-sub">
+            <label>
+              <span>范围限定（可选）</span>
+              <input
+                value={domain}
+                onChange={(event) => setDomain(event.target.value)}
+                placeholder="如：大模型 / 编程工具 / 官方发布"
+                maxLength={60}
+              />
+            </label>
+            <button type="submit" className="btn btn--lime" disabled={saving}>
+              <Icon name="plus" /> {saving ? '写入中…' : '写入监控表'}
+            </button>
+          </div>
+        </form>
         <p className="term-hint">
           // 系统每 30 分钟扫描一次；范围限定会拼接进 Bing 与 X 的检索语句，用于收窄结果。
         </p>
