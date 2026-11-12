@@ -33,6 +33,9 @@
 | React / ReactDOM | 19.2 | 并发渲染 |
 | Vite | 7.1 | 开发与构建 |
 | TypeScript | 5.9 | 前端类型约束 |
+| Tailwind CSS | 4.x | 仅组件层工具类，关闭 preflight |
+| Aceternity UI | 源码级引入 | Spotlight / Beams / Card Spotlight 等 |
+| Motion | 12.x | 动效运行时（`motion/react`） |
 | SQLite | 内置（node:sqlite） | WAL 模式 |
 
 ---
@@ -87,13 +90,21 @@
 - **代价**：无 SEO（内部工具不需要）；hash 路由不优雅但免依赖。
 - **重选条件**：需要公开分享页面或 SSR 时换 Next.js/Remix。
 
-### ADR-07 样式：手写 CSS 设计系统
+### ADR-07 样式：手写设计系统 + Tailwind 工具类（混合）
 
-- **选择**：CSS 变量 + 原生 CSS，切角/扫描线/霓虹全部手写。
-- **备选**：Tailwind（开发快，但同质化严重）；shadcn/ui（成品感强，难做出独特风格）；SCSS（多一层构建）。
-- **理由**：需求明确要求「独特、不千篇一律」；手写才能精确控制仪表盘刻度、粒子背景、故障动效；产物仅 38KB CSS。
-- **代价**：无原子类复用，样式文件较长；需自己维护设计变量。
-- **重选条件**：团队协作、页面数量翻倍时，引入 Tailwind + 设计 token 更经济。
+- **选择**：页面骨架与视觉令牌用手写 CSS（`styles.css` + `styles-v2.css`）；Aceternity 组件内部使用 Tailwind CSS 4 工具类，仅引入 `theme` 与 `utilities` 两层，关闭 preflight 以免破坏既有样式。
+- **备选**：纯 Tailwind（开发快但独特视觉难做）；shadcn/ui（成品感强、同质化）；SCSS（多一层构建）；纯手写（无法直接复用 Aceternity 源码）。
+- **理由**：既要「独特」，又必须使用 Aceternity 组件；混合方案让品牌视觉保持可控，组件效果又能原样落地。关闭 preflight 后，Tailwind 只作用于组件，不污染全局。
+- **代价**：两套样式体系并存，需要约定边界（新组件用 Tailwind，页面级布局用 CSS 变量）；CSS 产物增至约 61KB（gzip 13KB）。
+- **重选条件**：新页面全部改用 Tailwind 时，可移除手写样式；若视觉要求下降，也可退回纯 Tailwind。
+
+### ADR-07b 动效组件：Aceternity UI + Motion
+
+- **选择**：Spotlight、Background Beams、Card Spotlight、Text Generate Effect、Hover Border Gradient，动画库用 `motion`（`motion/react`）。
+- **备选**：纯 CSS 动效（轻但表现力有限）；Framer Motion 原包（与 motion 同源，新项目推荐 motion）；GSAP（能力强但体积与学习成本高）。
+- **理由**：需求明确要求 Aceternity；其官方实现基于 React + Tailwind + Motion，组件可复制后按品牌色改造；只在首屏 Hero 与卡片悬停使用，避免全站动画。
+- **代价**：JS 产物从 84KB 增至约 150KB（gzip）；Background Beams 为 SVG + 渐变动画，已把路径数从 50+ 降到 18，并尊重 `prefers-reduced-motion`。
+- **重选条件**：低端设备或弱网场景，可关闭 Beams/Spotlight，只保留 CSS 光晕与过渡。
 
 ### ADR-08 图表：手写 SVG
 
@@ -187,7 +198,7 @@
 ## 4. 选型的验证方式
 
 - 接口类决策（OpenRouter、twitterapi.io）通过 MCP 抓取官方文档核对，见 [SOLUTION.md](./SOLUTION.md) 第 4 节。
-- 性能类决策以实测为准：首屏产物 gzip ≈ 84KB；AI 单条研判 0.7–4s；一轮采集（3 词）≈ 14s。
+- 性能类决策以实测为准：首屏产物 gzip ≈ 150KB（含动效运行时）；AI 单条研判 0.7–4s；一轮采集（3 词）≈ 14s。
 - 每个选型都保留替换点：抓取、AI、通知、存储均在独立模块内，替换不影响其他层。
 
 ---
@@ -197,3 +208,4 @@
 | 日期 | 变更 |
 | --- | --- |
 | 2026-11-11 | 初版：记录 16 项关键决策与放弃清单 |
+| 2026-11-12 | 前端改版：新增 Tailwind CSS 4 + Aceternity UI + Motion 的混合样式方案（ADR-07 / 07b），更新性能基线 |

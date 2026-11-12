@@ -140,8 +140,8 @@ export function Gauge({
       <svg viewBox="0 0 200 200" className="gauge__svg" role="img" aria-label={`${label} ${value}`}>
         <defs>
           <linearGradient id={`gauge-${accent}`} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={accent === 'cyan' ? '#00eaff' : '#ff2bd6'} />
-            <stop offset="100%" stopColor={accent === 'cyan' ? '#d0ff00' : '#7b5bff'} />
+            <stop offset="0%" stopColor={accent === 'cyan' ? '#ff5c1a' : '#ffb020'} />
+            <stop offset="100%" stopColor={accent === 'cyan' ? '#c6ff3d' : '#ff5c1a'} />
           </linearGradient>
         </defs>
         <circle cx="100" cy="100" r={radius} className="gauge__track" />
@@ -205,8 +205,8 @@ export function Sparkline({ points, accent = 'cyan' }: { points: number[]; accen
     <svg viewBox="0 0 320 88" className={`spark spark--${accent}`} preserveAspectRatio="none">
       <defs>
         <linearGradient id={`spark-fill-${accent}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={accent === 'cyan' ? '#00eaff' : '#ff2bd6'} stopOpacity="0.34" />
-          <stop offset="100%" stopColor={accent === 'cyan' ? '#00eaff' : '#ff2bd6'} stopOpacity="0" />
+          <stop offset="0%" stopColor={accent === 'cyan' ? '#ff5c1a' : '#ffb020'} stopOpacity="0.34" />
+          <stop offset="100%" stopColor={accent === 'cyan' ? '#ff5c1a' : '#ffb020'} stopOpacity="0" />
         </linearGradient>
       </defs>
       <path d={path.area} fill={`url(#spark-fill-${accent})`} />
@@ -217,9 +217,9 @@ export function Sparkline({ points, accent = 'cyan' }: { points: number[]; accen
 
 /* ---------------- Donut ---------------- */
 const DONUT_COLORS: Record<string, string> = {
-  bing: '#00eaff',
-  twitter: '#ff2bd6',
-  seed: '#d0ff00',
+  bing: '#ff5c1a',
+  twitter: '#ffb020',
+  seed: '#c6ff3d',
 };
 
 export function Donut({ data }: { data: { key: string; count: number }[] }) {
@@ -269,9 +269,9 @@ export function Donut({ data }: { data: { key: string; count: number }[] }) {
 
 /* ---------------- Bars ---------------- */
 const IMPORTANCE_COLOR: Record<string, string> = {
-  urgent: '#ff2b5e',
-  high: '#ff2bd6',
-  medium: '#00eaff',
+  urgent: '#ff3b5c',
+  high: '#ffb020',
+  medium: '#ff5c1a',
   low: '#61708a',
   unrated: '#3d4757',
 };

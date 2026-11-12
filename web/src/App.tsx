@@ -27,6 +27,7 @@ export default function App() {
   const [aiReady, setAiReady] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [collecting, setCollecting] = useState(false);
+  const [headlines, setHeadlines] = useState<{ id: number; title: string; importance: string | null }[]>([]);
   const toastId = useRef(0);
 
   const notify = useCallback((message: string, tone: 'ok' | 'error' = 'ok') => {
@@ -59,6 +60,20 @@ export default function App() {
       })
       .catch(() => setAiReady(false));
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .hotspots({ limit: 6 })
+      .then((data) => {
+        if (!alive) return;
+        setHeadlines(data.items.map((item) => ({ id: item.id, title: item.title, importance: item.importance })));
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [pulse]);
 
   const { status, online } = useLive({
     onHotspotNew: (hotspot) => {
@@ -120,12 +135,14 @@ export default function App() {
             pulse={pulse}
             onOpen={setSelected}
             onNavigate={onNavigate}
+            onScan={runScan}
+            scanning={scanning}
             notify={notify}
             aiReady={aiReady}
           />
         );
     }
-  }, [view, pulse, notify, onNavigate, aiReady]);
+  }, [view, pulse, notify, onNavigate, aiReady, scanning]);
 
   return (
     <>
@@ -139,6 +156,7 @@ export default function App() {
         scanning={scanning}
         onScan={runScan}
         aiReady={aiReady}
+        headlines={headlines}
       >
         {page}
       </Layout>

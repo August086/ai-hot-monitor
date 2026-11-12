@@ -49,7 +49,7 @@
 | 实时 | ws 8.18 | 原生 WebSocketServer，可直接挂 HTTP server |
 | 邮件 | nodemailer 7 | 支持 QQ/163/Gmail/Outlook SMTP |
 | 调度 | 自研 tick 调度 | 间隔可从数据库热更新，无需重启 cron |
-| 前端 | React 19 + Vite 7 + TypeScript 5.9 | 组件化 + 秒级构建，产物约 84KB gzip |
+| 前端 | React 19 + Vite 7 + TypeScript 5.9 + Tailwind CSS 4 + Aceternity UI + Motion | 组件化 + 秒级构建；动效组件按需引入，产物约 150KB gzip |
 | AI | OpenRouter Chat Completions | 统一多模型接入，支持结构化输出 |
 
 ---
@@ -301,17 +301,24 @@ web/
 
 ## 14. 前端设计
 
-**视觉语言**：NEON//WATCH 数据中枢。深空底色 + 青/品红/荧光绿三色霓虹；Canvas 粒子星链背景、扫描线、噪点、切角卡片、刻度仪表盘、终端式关键词输入、打字机摘要、实时脉冲。
+**视觉语言（v2 · SIGNAL DESK）**：墨色底 + 信号橙 `#ff5c1a` / 酸性绿 `#c6ff3d` / 琥珀 `#ffb020` / 告警红 `#ff3b5c`，像新闻编辑部的告警台。顶部指挥栏 + 信号走马灯 + 编辑部式大标题 + 聚光灯卡片；字体 Space Grotesk（标题）+ JetBrains Mono（数据）。
+
+**Aceternity UI 组件**（通过 Context7 获取官方实现后落地，按品牌色改造）：
+- Spotlight：Hero 顶部锥形光。
+- Background Beams：Hero 背景流光 SVG（路径数精简到 18，尊重 `prefers-reduced-motion`）。
+- Text Generate Effect：主标题逐字浮现（中文按字符切分）。
+- Card Spotlight：热点卡片鼠标跟随光斑。
+- Hover Border Gradient：顶栏 SCAN NOW 按钮的流动边框。
 
 **信息架构**：
-- 仪表盘：24h 新增、可信度仪表、优先队列、7 日曲线、来源环图、重要度条形、实时流、系统状态。
-- 热点流：等级/来源/可信度/文本四维筛选，卡片化时间流，详情抽屉（相关性、判定依据、原文）。
+- 指挥台：大标题 Hero + 实时新增 + 优先队列 + 指标条 + 7 日曲线 + 可信度仪表 + 来源环图 + 实时流 + 系统状态。
+- 热点流：等级/来源/可信度/文本四维筛选，编辑部式卡片流，详情抽屉（相关性、判定依据、原文）。
 - 关键词：终端风格录入、逐行启停/编辑/删除/单词扫描。
 - 设置：通知渠道、采集策略、AI 引擎与能力矩阵、通知历史。
 
-**响应式**：≥1280 三栏；1080 收窄；≤820 侧栏变底部导航，抽屉全屏；≤560 进一步压缩。支持 `prefers-reduced-motion`。
+**响应式**：≥1240 桌面双栏 Hero + 三栏 Bento；≤1040 Hero 单栏、指标条 3 列；≤880 顶栏导航收起、底部固定导航；≤560 进一步压缩。支持 `prefers-reduced-motion`。
 
-**性能**：首屏产物约 270KB（gzip 84KB），无图表库；Canvas 粒子数量按面积自适应并限制 78 个。
+**性能**：JS 约 461KB（gzip 150KB）、CSS 约 61KB（gzip 13KB）；粒子 Canvas 已移除，Beams 仅首页 Hero 使用；动效均可用系统「减少动态」关闭。
 
 ---
 
@@ -366,3 +373,4 @@ web/
 | --- | --- | --- |
 | 2026-11-11 | v1.0 | 完成需求分析与方案设计；实现后端、前端、Agent Skill；接入 OpenRouter 与 QQ SMTP；通过测试与验收 |
 | 2026-11-11 | v1.1 | 依据 MCP 最新文档将 `X-Title` 改为 `X-OpenRouter-Title`，结构化输出由 `json_object` 升级为 `json_schema + strict`；实测 `require_parameters` 会跳过 DeepSeek 端点故未启用；Bing 增加 `mkt=zh-CN` |
+| 2026-11-12 | v1.2 | 前端改版为 SIGNAL DESK：墨色 + 信号橙/酸性绿、顶部指挥栏与信号走马灯、Hero 聚光灯与光束；引入 Tailwind CSS 4 + Aceternity UI + Motion（Context7 核对官方实现） |

@@ -132,7 +132,7 @@ export function Hotspots({
             <button
               key={item.key}
               type="button"
-              className={`chip-filter ${importance === item.key ? 'is-active' : ''}`}
+              className={`chip-filter ${importance === item.key ? 'is-active' : ''} ${item.key === 'all' ? 'is-all' : ''}`}
               onClick={() => setImportance(item.key)}
             >
               {item.label}
@@ -144,7 +144,7 @@ export function Hotspots({
             <button
               key={item.key}
               type="button"
-              className={`chip-filter ${source === item.key ? 'is-active' : ''}`}
+              className={`chip-filter ${source === item.key ? 'is-active' : ''} ${item.key === 'all' ? 'is-all' : ''}`}
               onClick={() => setSource(item.key)}
             >
               {item.label}
@@ -160,7 +160,7 @@ export function Hotspots({
             <button
               key={item.key}
               type="button"
-              className={`chip-filter ${trust === item.key ? 'is-active' : ''}`}
+              className={`chip-filter ${trust === item.key ? 'is-active' : ''} ${item.key === 'all' ? 'is-all' : ''}`}
               onClick={() => setTrust(item.key as 'all' | 'real' | 'fake')}
             >
               {item.label}

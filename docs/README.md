@@ -16,7 +16,7 @@
 
 | 层 | 技术 |
 | --- | --- |
-| 前端 | React 19 + Vite 7 + TypeScript + 手写 CSS/SVG |
+| 前端 | React 19 + Vite 7 + TypeScript + Tailwind CSS 4 + Aceternity UI + Motion |
 | 后端 | Node.js 24 + Express 5 |
 | 存储 | SQLite（`node:sqlite`，WAL） |
 | 实时 | ws |

@@ -1,21 +1,28 @@
 import type { ReactNode } from 'react';
 import { Icon } from './Primitives';
 import type { IconName } from './Primitives';
+import { HoverBorderGradient } from './ui/hover-border-gradient';
 import type { LiveStatus } from '../hooks/useLive';
 
 export type ViewKey = 'dashboard' | 'hotspots' | 'keywords' | 'settings';
 
 export const NAV_ITEMS: { key: ViewKey; label: string; icon: IconName; sub: string }[] = [
-  { key: 'dashboard', label: '仪表盘', icon: 'radar', sub: 'DASHBOARD' },
-  { key: 'hotspots', label: '热点流', icon: 'list', sub: 'SIGNAL FEED' },
+  { key: 'dashboard', label: '指挥台', icon: 'radar', sub: 'SIGNAL DESK' },
+  { key: 'hotspots', label: '热点流', icon: 'list', sub: 'LIVE FEED' },
   { key: 'keywords', label: '关键词', icon: 'tag', sub: 'KEYWORDS' },
   { key: 'settings', label: '设置', icon: 'gear', sub: 'CONFIG' },
 ];
 
 const STATUS_TEXT: Record<LiveStatus, string> = {
-  online: '链路在线',
-  connecting: '链路同步中',
-  offline: '链路中断',
+  online: 'LIVE',
+  connecting: 'SYNC',
+  offline: 'OFFLINE',
+};
+
+export type TickerItem = {
+  id: number;
+  title: string;
+  importance: string | null;
 };
 
 export function Layout({
@@ -27,6 +34,7 @@ export function Layout({
   scanning,
   onScan,
   aiReady,
+  headlines,
   children,
 }: {
   view: ViewKey;
@@ -37,84 +45,111 @@ export function Layout({
   scanning: boolean;
   onScan: () => void;
   aiReady: boolean;
+  headlines: TickerItem[];
   children: ReactNode;
 }) {
   const current = NAV_ITEMS.find((item) => item.key === view) || NAV_ITEMS[0];
+  const wire = headlines.length ? headlines : [{ id: 0, title: '等待第一轮扫描，接入实时信号…', importance: null }];
+  const busy = scanning || collecting;
 
   return (
-    <div className="shell">
-      <aside className="rail">
-        <div className="rail__logo" title="NEON//WATCH">
-          <svg viewBox="0 0 48 48" className="rail__mark">
-            <polygon points="24,3 42,13 42,35 24,45 6,35 6,13" />
-            <path d="M16 32V16l16 16V16" />
-          </svg>
-          <span className="rail__ring" />
-        </div>
+    <div className="shell shell--desk">
+      <header className="masthead">
+        <a
+          className="brand"
+          href="#/dashboard"
+          onClick={(event) => {
+            event.preventDefault();
+            onNavigate('dashboard');
+          }}
+        >
+          <span className="brand__glyph" aria-hidden="true">
+            <i />
+            <i />
+          </span>
+          <span className="brand__text">
+            <b>NEON//WATCH</b>
+            <em>{current.sub}</em>
+          </span>
+        </a>
 
-        <nav className="rail__nav" aria-label="主导航">
-          {NAV_ITEMS.map((item) => (
+        <nav className="topnav" aria-label="主导航">
+          {NAV_ITEMS.map((item, index) => (
             <button
               key={item.key}
               type="button"
-              className={`rail__item ${view === item.key ? 'is-active' : ''}`}
+              className={`topnav__item ${view === item.key ? 'is-active' : ''}`}
               onClick={() => onNavigate(item.key)}
               aria-current={view === item.key ? 'page' : undefined}
             >
-              <Icon name={item.icon} className="rail__icon" />
-              <span className="rail__label">{item.label}</span>
-              <span className="rail__glow" />
+              <span className="topnav__no">0{index + 1}</span>
+              <span className="topnav__label">{item.label}</span>
             </button>
           ))}
         </nav>
 
-        <div className="rail__foot">
-          <div className={`rail__pulse ${status === 'online' ? 'is-live' : ''}`}>
+        <div className="masthead__right">
+          <div className={`live-pill live-pill--${status}`}>
             <i />
+            {STATUS_TEXT[status]}
             <span>{online}</span>
           </div>
-          <span className="rail__version">v1.0</span>
+          <span className={`ai-pill ${aiReady ? 'is-on' : 'is-off'}`}>
+            <Icon name="cpu" />
+            {aiReady ? 'AI' : 'RULE'}
+          </span>
+          <HoverBorderGradient
+            as="button"
+            type="button"
+            onClick={onScan}
+            disabled={busy}
+            duration={2}
+            containerClassName={`scan-cta ${busy ? 'is-busy' : ''}`}
+            className="scan-cta__inner"
+          >
+            <Icon name="bolt" />
+            {busy ? 'SCANNING' : 'SCAN NOW'}
+          </HoverBorderGradient>
         </div>
-      </aside>
+      </header>
 
-      <div className="main">
-        <header className="topbar">
-          <div className="topbar__brand">
-            <span className="topbar__mark">NEON<span>//</span>WATCH</span>
-            <span className="topbar__sep">/</span>
-            <span className="topbar__crumb">
-              {current.sub} <i>{current.label}</i>
-            </span>
+      <div className="ticker" aria-label="最新信号">
+        <span className="ticker__label">
+          <i /> LIVE WIRE
+        </span>
+        <div className="ticker__viewport">
+          <div className="ticker__track">
+            {[...wire, ...wire].map((item, index) => (
+              <span key={`${item.id}-${index}`} className={`ticker__item ticker__item--${item.importance || 'none'}`}>
+                <i />
+                {item.title}
+              </span>
+            ))}
           </div>
-
-          <div className="topbar__right">
-            <div className={`chip chip--${status}`}>
-              <span className="chip__dot" />
-              {STATUS_TEXT[status]}
-            </div>
-            <div className={`chip ${aiReady ? 'chip--ok' : 'chip--warn'}`}>
-              <Icon name="cpu" />
-              AI {aiReady ? 'READY' : 'HEURISTIC'}
-            </div>
-            <button
-              type="button"
-              className={`scan-btn ${scanning || collecting ? 'is-busy' : ''}`}
-              onClick={onScan}
-              disabled={scanning || collecting}
-            >
-              <Icon name="refresh" />
-              <span>{scanning || collecting ? 'SCANNING…' : 'RUN SCAN'}</span>
-            </button>
-          </div>
-        </header>
-
-        <main className="content">{children}</main>
-
-        <footer className="footer">
-          <span>NEON//WATCH · AI HOTSPOT INTELLIGENCE</span>
-          <span className="footer__diag">SIGNAL CHANNEL 0x7F · ENCRYPTED</span>
-        </footer>
+        </div>
+        <span className="ticker__meta">每 30 分钟刷新</span>
       </div>
+
+      <main className="content content--desk">{children}</main>
+
+      <footer className="footer">
+        <span>NEON//WATCH · 为第一时间发布的你而生</span>
+        <span className="footer__diag">SIGNAL DESK · {aiReady ? 'AI CORE ONLINE' : 'HEURISTIC MODE'}</span>
+      </footer>
+
+      <nav className="mobile-nav" aria-label="移动端导航">
+        {NAV_ITEMS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className={`mobile-nav__item ${view === item.key ? 'is-active' : ''}`}
+            onClick={() => onNavigate(item.key)}
+          >
+            <Icon name={item.icon} />
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }

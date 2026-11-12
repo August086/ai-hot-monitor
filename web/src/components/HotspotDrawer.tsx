@@ -4,6 +4,15 @@ import { IMPORTANCE_LABEL, SOURCE_LABEL } from '../types';
 import { api, formatTime } from '../api';
 import { Icon, TrustBadge } from './Primitives';
 
+const STATUS_LABEL: Record<string, string> = {
+  analyzed: 'AI',
+  heuristic: 'RULE',
+  pending: 'WAIT',
+  failed: 'FAIL',
+};
+
+const DATE_LIKE = /^\d{4}[-/年.]\d{1,2}([-/月.]\d{1,2})?/;
+
 export function HotspotDrawer({
   hotspot,
   onClose,
@@ -73,7 +82,7 @@ export function HotspotDrawer({
           </div>
           <div>
             <span>发布时间</span>
-            <b>{hotspot.publishedAt || '未知'}</b>
+            <b>{hotspot.publishedAt && DATE_LIKE.test(hotspot.publishedAt) ? hotspot.publishedAt : '未知'}</b>
           </div>
           <div>
             <span>来源</span>
@@ -124,7 +133,7 @@ export function HotspotDrawer({
           <div className="score">
             <span>模型</span>
             <b className="score__model">{hotspot.aiModel || 'PENDING'}</b>
-            <b className="score__status">{hotspot.aiStatus}</b>
+            <b className="score__status">{STATUS_LABEL[hotspot.aiStatus] || hotspot.aiStatus}</b>
           </div>
         </section>
 
