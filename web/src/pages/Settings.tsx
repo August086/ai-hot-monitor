@@ -245,8 +245,8 @@ export function Settings({
             <b className={twitter.configured ? 'ok' : 'warn'}>{twitter.configured ? 'CONNECTED' : 'SKIPPED'}</b>
           </div>
           <div className="cap-row">
-            <span>网页搜索数据源</span>
-            <b className="ok">BING ACTIVE</b>
+            <span>资讯数据源</span>
+            <b className="ok">HN + RSS + 百度资讯</b>
           </div>
         </Panel>
 

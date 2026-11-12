@@ -63,14 +63,18 @@
 | 需求项 | 描述 | 优先级 |
 | --- | --- | --- |
 | 定时采集 | 默认 30 分钟一轮，间隔可在设置页热更新（5–1440 分钟） | P0 |
-| 多源覆盖 | Bing 网页 + Hacker News + arXiv + GDELT；HuggingFace 可选；X 需密钥 | P0 |
-| 发布时间统一 | 各源时间统一转为 ISO；无法解析时保留为空 | P0 |
-| 时效过滤 | 新闻类 48h、arXiv 7 天、HuggingFace 14 天，超时丢弃 | P0 |
+| 多源覆盖 | Hacker News + 国内科技媒体 RSS（IT之家/Solidot/InfoQ/量子位）+ 百度资讯；HF 可选，X 需密钥 | P0 |
+| 关键词相关性守卫 | 英文按词边界、中文按子串；HN 查标题/URL，RSS/百度查标题+摘要 | P0 |
+| HN 质量门槛 | points ≥ 5 或 comments ≥ 2 才入库 | P0 |
+| 百度媒体白名单 | 只保留有编辑责任的科技/财经媒体，百家号/未知来源丢弃 | P0 |
+| 发布时间统一 | 各源时间统一转为 ISO；无法解析的搜索类结果丢弃 | P0 |
+| 时效过滤 | 新闻类 48h，超时丢弃；无发布时间不进入默认视图 | P0 |
 | 默认按发布时间排序 | 无发布时间的条目排在最后 | P0 |
 | 仅有发布时间开关 | 一键隐藏无发布时间的条目（默认开启） | P1 |
 | 重要度排序 | 可切换 `latest` / `importance` 两种排序 | P1 |
 | 去重 | URL 指纹精确去重 + 48h 内中文标题相似度去重 | P0 |
-| 采集可观测 | 每轮记录 found / stale / created / analyzed 与错误 | P1 |
+| 来源配额 | 单源每轮入库 ≤10 条，AI 预算中单源 ≤40% | P0 |
+| 采集可观测 | 每轮记录 found / stale / filtered / created / analyzed 与错误 | P1 |
 
 ### 4.3 AI 研判
 
@@ -123,7 +127,7 @@
 | --- | --- | --- |
 | 首屏加载 | < 3s（本机） | JS 461.8KB（gzip 150.2KB）、CSS 63.5KB（gzip 13.7KB） |
 | API 响应 | < 1s | 本机统计/列表接口 0–4ms |
-| 单轮采集 | 3 个关键词内 < 60s | Bing 串行限速，其余源并行 |
+| 单轮采集 | 3 个关键词内 < 60s | HN/arXiv 并行，RSS 缓存复用，百度单请求 |
 | 前端刷新 | 20s 轮询 + WS 事件即时刷新 | 已实现 |
 
 ### 5.2 数据质量与时效
@@ -159,21 +163,30 @@
 
 ## 6. 数据源规格
 
-| 源 | 接口 | 鉴权 | 默认时效 | 定位 |
-| --- | --- | --- | --- | --- |
-| Bing | `bing.com/search`（HTML） | 无 | 48h | 中文资讯覆盖面，需 `mkt=zh-CN` |
-| Hacker News | Algolia `search_by_date` | 无 | 48h | 开发者圈最快信号 |
-| arXiv | `export.arxiv.org/api/query` | 无 | 168h | 论文/算法层新进展 |
-| GDELT | DOC 2.0 `artlist` | 无 | 48h | 全球新闻索引，约 15 分钟更新 |
-| HuggingFace | `huggingface.co/api/models` | 无 | 336h | 模型上新，默认关闭 |
-| X / Twitter | twitterapi.io `advanced_search` | `TWITTERAPI_KEY` | 48h | 意见领袖动态，可选 |
+| 源 | 状态 | 接口 | 鉴权 | 默认时效 | 定位 |
+| --- | --- | --- | --- | --- | --- |
+| Hacker News | 开 | Algolia `search_by_date` | 无 | 48h | 开发者圈最快信号 |
+| IT之家 RSS | 开 | `ithome.com/rss/` | 无 | 48h | 国内科技资讯 |
+| Solidot RSS | 开 | `solidot.org/index.rss` | 无 | 48h | 技术社区 |
+| InfoQ 中国 RSS | 开 | `infoq.cn/feed` | 无 | 48h | 工程与架构 |
+| 量子位 RSS | 开 | `qbitai.com/feed` | 无 | 48h | AI 垂直媒体 |
+| 百度资讯 | 开 | `news.baidu.com/ns` | 无 | 48h | 国内资讯搜索（白名单媒体） |
+| Bing | 关 | `bing.com/search`（HTML） | 无 | — | 结果普遍无发布时间 |
+| arXiv | 关 | `export.arxiv.org/api/query` | 无 | 168h | 学术检索与新闻不匹配 |
+| GDELT | 关 | DOC 2.0 `artlist` | 无 | 48h | 免费接口 429 限流 |
+| HuggingFace | 关 | `huggingface.co/api/models` | 无 | 336h | 网络可达性差 |
+| X / Twitter | 可选 | twitterapi.io `advanced_search` | `TWITTERAPI_KEY` | 48h | 意见领袖动态 |
+
+> arXiv、GDELT、Bing 的代码保留但默认关闭，可通过 `.env` 中的 `ENABLE_ARXIV` / `ENABLE_GDELT` / `ENABLE_BING` 回滚。上述取舍依据见 [SOLUTION.md](./SOLUTION.md) 与 [TECH_SELECTION.md](./TECH_SELECTION.md) ADR-20。
 
 **采集约束**
 
 - 关键词间间隔 ≥ 3s（默认 6s）；单关键词单源 ≤ 8 条。
 - 每轮最多 10 个关键词、12 条新热点进入 AI 研判。
-- GDELT 免费接口限流严格，按 10s 串行并 429 重试。
-- Bing 使用 4 组 UA 轮换；命中验证码直接失败并记录。
+- GDELT 免费接口限流严格，按 10s 串行并 429 重试（默认关闭）。
+- Bing 使用 4 组 UA 轮换；命中验证码直接失败并记录（默认关闭）。
+- 百度资讯单关键词一次请求，3 组 UA 轮换；命中验证码或异常页面直接跳过。
+- RSS 同一轮多个关键词共享 5 分钟缓存；单源失败不影响其他源。
 - 导航型结果（官网首页、应用商店、百科）在解析层过滤。
 
 ## 7. AI 研判规格
@@ -250,8 +263,9 @@ OPENROUTER_FALLBACK_MODEL=moonshotai/kimi-k3
 | 验收项 | 状态 | 证据 |
 | --- | --- | --- |
 | 关键词增删改查/启停/单关键词扫描 | ✅ | 冒烟测试 + 浏览器实测 |
-| 多源自动抓取 | ✅ | Bing + HN + arXiv + GDELT 实测入库；HF 可选；X 待密钥 |
-| 时效过滤与发布时间排序 | ✅ | 48h/7d/14d 分源窗口；无时间条目排后 |
+| 多源自动抓取 | ✅ | HN + 4×RSS + 百度资讯实测；arXiv/GDELT/Bing 默认关闭 |
+| 质量闸门 | ✅ | HN 5/2、关键词守卫、百度白名单、单源配额均通过单测 |
+| 时效过滤与发布时间排序 | ✅ | 48h 窗口；无时间条目排后，搜索类无时间结果丢弃 |
 | 仅看已发布 / 重要度排序 | ✅ | 热点流筛选实测 |
 | URL + 标题双重去重 | ✅ | 单元测试 + 采集日志 |
 | AI 真假/相关性/重要度/摘要 | ✅ | 结构化输出实测，含降级标注 |
@@ -268,8 +282,8 @@ OPENROUTER_FALLBACK_MODEL=moonshotai/kimi-k3
 | --- | --- |
 | 页面加载 | 本机 < 1s；产物 gzip ≈ 164KB（JS + CSS） |
 | API 响应 | 统计/列表 0–4ms |
-| 采集稳定性 | 限速、UA 轮换、单源失败隔离、429 重试 |
-| 测试 | `npm test` 13/13 通过 |
+| 采集稳定性 | 限速、UA 轮换、单源失败隔离；百度异常页面识别 |
+| 测试 | `npm test` 26 项单元 + 13 项 API 全部通过 |
 
 ### 10.3 验收记录
 
@@ -278,6 +292,7 @@ OPENROUTER_FALLBACK_MODEL=moonshotai/kimi-k3
 | 2026-11-11 | v1.0 全功能 | 通过；Twitter 待密钥 |
 | 2026-11-12 | 多源 + 时效 + SIGNAL DESK | 通过；Bing 旧闻问题已由时效窗口与多源缓解 |
 | 2026-11-12 | 可读性与可访问性 | 通过；对比度、字号、触控、焦点、动效五项达标 |
+| 2026-11-12 | 来源可靠性 v2 | 通过；隔离库实测 9 条入库来自 4 个源（百度 5 / HN 2 / RSS 2），无 arXiv/GDELT/Bing |
 
 ## 11. 需求变更记录
 
@@ -286,3 +301,4 @@ OPENROUTER_FALLBACK_MODEL=moonshotai/kimi-k3
 | 2026-11-11 | v1.0 | 初版：关键词、抓取、AI、通知、UI、Skill 六类需求 |
 | 2026-11-12 | v1.1 | 新增多源（HN/arXiv/GDELT/HF）与时效过滤需求；明确“发布时间优先、仅有发布时间筛选”；补充数据源规格 |
 | 2026-11-12 | v1.2 | 新增可访问性非功能需求（对比度/字号/触控/焦点/减弱动效）；更新验收结果与性能基线；视觉语言更名为 SIGNAL DESK |
+| 2026-11-12 | v1.3 | 可靠性优先：关闭 Bing/arXiv/GDELT；新增百度资讯与 4 个国内科技媒体 RSS；增加关键词守卫、HN 互动门槛、百度白名单与单源配额 |

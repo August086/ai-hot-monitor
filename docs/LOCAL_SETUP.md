@@ -122,10 +122,13 @@ npm run seed -w server      # 写入演示数据
 **Q2：AI 返回 403 `not available in your region`**
 当前区域不支持该模型。换成 `deepseek/deepseek-v4.1-flash-1017` 或 `moonshotai/kimi-k3`，只改 `.env` 无需改代码。
 
-**Q3：抓取结果为官网 / 应用商店**
-Bing 需要 `mkt=zh-CN`（代码已内置）。若仍不理想，把关键词写得更具体，或在关键词里加范围限定（如「发布」）。
+**Q3：抓取结果偏官网 / 旧闻**
+Bing 已默认关闭（结果普遍没有发布时间）。默认源为 HN + 国内科技媒体 RSS + 百度资讯；如需重新启用 Bing，设 `ENABLE_BING=true` 并使用更具体的关键词或范围限定。
 
-**Q4：Bing 提示异常流量**
+**Q4：百度资讯没有结果 / 触发验证**
+百度可能临时返回验证页，日志会记录 `百度资讯触发反爬验证`，下一轮会自动恢复。若持续失败，可降低抓取频率或暂时设 `ENABLE_BAIDU_NEWS=false`。
+
+**Q4b：Bing 提示异常流量（仅在手动开启 Bing 时）**
 已做 UA 轮换与重试；仍失败时把 `CRAWL_DELAY_MS` 调大（例如 10000），或降低 `PER_KEYWORD_LIMIT`。
 
 **Q5：邮件发送失败**

@@ -14,11 +14,16 @@ const IMPORTANCE_FILTERS: { key: Importance | 'all'; label: string }[] = [
 
 const SOURCE_FILTERS = [
   { key: 'all', label: '全部来源' },
-  { key: 'bing', label: 'WEB / BING' },
+  { key: 'baidu', label: '百度资讯' },
+  { key: 'ithome', label: 'IT之家' },
+  { key: 'solidot', label: 'SOLIDOT' },
+  { key: 'infoq', label: 'INFOQ' },
+  { key: 'qbitai', label: '量子位' },
   { key: 'hackernews', label: 'HN' },
   { key: 'gdelt', label: 'GDELT' },
   { key: 'arxiv', label: 'ARXIV' },
   { key: 'huggingface', label: 'HF' },
+  { key: 'bing', label: 'WEB / BING' },
   { key: 'twitter', label: 'X / TWITTER' },
 ];
 

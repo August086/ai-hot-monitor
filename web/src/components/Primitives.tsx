@@ -224,6 +224,11 @@ const DONUT_COLORS: Record<string, string> = {
   huggingface: '#7ee787',
   twitter: '#90cdf4',
   seed: '#55677e',
+  ithome: '#ff8a5c',
+  solidot: '#8ce99a',
+  infoq: '#66d9e8',
+  qbitai: '#ffc078',
+  baidu: '#4dabf7',
 };
 
 export function Donut({ data }: { data: { key: string; count: number }[] }) {

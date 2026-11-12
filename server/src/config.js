@@ -23,6 +23,94 @@ const bool = (value, fallback = false) => {
   return ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase());
 };
 
+const list = (value, fallback = []) => {
+  if (value === undefined || value === '') return fallback;
+  const items = String(value)
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+  return items.length ? items : fallback;
+};
+
+// GDELT 只保留主流媒体与 AI 垂直站优先，未知域名仍保留
+const GDELT_WHITELIST = [
+  '36kr.com',
+  'ithome.com',
+  'jiqizhixin.com',
+  'qbitai.com',
+  'infoq.cn',
+  'solidot.org',
+  'techcrunch.com',
+  'theverge.com',
+  'arstechnica.com',
+  'openai.com',
+  'anthropic.com',
+  'blog.google',
+  'deepmind.google',
+  'reuters.com',
+  'bloomberg.com',
+  'cnbc.com',
+  'wsj.com',
+  'nytimes.com',
+  'theinformation.com',
+  'venturebeat.com',
+  'engadget.com',
+  'wired.com',
+  'technologyreview.com',
+  'sina.com.cn',
+  '163.com',
+  'qq.com',
+  'sohu.com',
+  'people.com.cn',
+  'xinhuanet.com',
+  'cctv.com',
+  'chinanews.com.cn',
+];
+
+// 百度资讯只保留有编辑责任的科技/财经媒体，百家号与未知来源默认丢弃
+const BAIDU_MEDIA_WHITELIST = [
+  'IT之家',
+  '36氪',
+  '机器之心',
+  '量子位',
+  'InfoQ',
+  '钛媒体',
+  '界面新闻',
+  '财联社',
+  '华尔街见闻',
+  '金融界',
+  '新浪科技',
+  '同花顺',
+  '每日经济新闻',
+  '第一财经',
+  '证券时报',
+  '澎湃新闻',
+  '新华网',
+  '人民网',
+  '央视新闻',
+  '中国新闻网',
+  'TechWeb',
+  '快科技',
+  '爱范儿',
+  '少数派',
+  '虎嗅',
+  '品玩',
+  '智东西',
+  '雷峰网',
+  '中关村在线',
+  '太平洋电脑网',
+];
+
+// 聚合站 / 转载站，避免同一新闻反复出现
+const GDELT_BLACKLIST = [
+  'msn.com',
+  'news.google.com',
+  'flipboard.com',
+  'newsnow.co.uk',
+  'feedproxy.google.com',
+  'rss.app',
+];
+
 const dataDir = path.join(SERVER_ROOT, 'data');
 fs.mkdirSync(dataDir, { recursive: true });
 
@@ -41,10 +129,37 @@ export const config = {
   },
 
   sources: {
+    bing: bool(process.env.ENABLE_BING, false),
     hackernews: bool(process.env.ENABLE_HN, true),
-    arxiv: bool(process.env.ENABLE_ARXIV, true),
-    gdelt: bool(process.env.ENABLE_GDELT, true),
+    arxiv: bool(process.env.ENABLE_ARXIV, false),
+    gdelt: bool(process.env.ENABLE_GDELT, false),
     huggingface: bool(process.env.ENABLE_HF, false),
+    rss: bool(process.env.ENABLE_RSS_CN, true),
+    baidu: bool(process.env.ENABLE_BAIDU_NEWS, true),
+  },
+
+  rss: {
+    feeds: list(process.env.RSS_FEEDS, ['ithome', 'solidot', 'infoq', 'qbitai']),
+    freshnessHours: num(process.env.RSS_FRESHNESS_HOURS, 48, 1, 720),
+  },
+
+  baidu: {
+    mediaWhitelist: list(process.env.BAIDU_MEDIA_WHITELIST, BAIDU_MEDIA_WHITELIST),
+    freshnessHours: num(process.env.BAIDU_FRESHNESS_HOURS, 48, 1, 720),
+    maxResults: num(process.env.BAIDU_MAX_RESULTS, 8, 1, 20),
+  },
+
+  quality: {
+    hnMinPoints: num(process.env.HN_MIN_POINTS, 5, 0, 10000),
+    hnMinComments: num(process.env.HN_MIN_COMMENTS, 2, 0, 10000),
+    minTitleLength: num(process.env.MIN_TITLE_LENGTH, 12, 1, 200),
+    perSourceAiRatio: Math.min(
+      Math.max(Number(process.env.PER_SOURCE_AI_RATIO ?? 0.4) || 0.4, 0.1),
+      1,
+    ),
+    maxItemsPerSourcePerRun: num(process.env.MAX_ITEMS_PER_SOURCE_PER_RUN, 10, 1, 100),
+    gdeltWhitelist: list(process.env.GDELT_DOMAIN_WHITELIST, GDELT_WHITELIST),
+    gdeltBlacklist: list(process.env.GDELT_DOMAIN_BLACKLIST, GDELT_BLACKLIST),
   },
 
   freshness: {
@@ -54,6 +169,11 @@ export const config = {
     arxiv: num(process.env.ARXIV_FRESHNESS_HOURS, 168, 1, 2160),
     huggingface: num(process.env.HF_FRESHNESS_HOURS, 336, 1, 4320),
     twitter: num(process.env.FRESHNESS_HOURS, 48, 1, 720),
+    ithome: num(process.env.RSS_FRESHNESS_HOURS, 48, 1, 720),
+    solidot: num(process.env.RSS_FRESHNESS_HOURS, 48, 1, 720),
+    infoq: num(process.env.RSS_FRESHNESS_HOURS, 48, 1, 720),
+    qbitai: num(process.env.RSS_FRESHNESS_HOURS, 48, 1, 720),
+    baidu: num(process.env.BAIDU_FRESHNESS_HOURS, 48, 1, 720),
   },
 
   ai: {

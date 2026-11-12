@@ -1,5 +1,17 @@
 export type Importance = 'low' | 'medium' | 'high' | 'urgent';
-export type SourceKind = 'bing' | 'twitter' | 'seed' | 'hackernews' | 'arxiv' | 'huggingface' | 'gdelt';
+export type SourceKind =
+  | 'bing'
+  | 'twitter'
+  | 'seed'
+  | 'hackernews'
+  | 'arxiv'
+  | 'huggingface'
+  | 'gdelt'
+  | 'ithome'
+  | 'solidot'
+  | 'infoq'
+  | 'qbitai'
+  | 'baidu';
 
 export interface Keyword {
   id: number;
@@ -116,4 +128,9 @@ export const SOURCE_LABEL: Record<string, string> = {
   arxiv: 'ARXIV',
   huggingface: 'HF',
   gdelt: 'GDELT',
+  ithome: 'IT之家',
+  solidot: 'SOLIDOT',
+  infoq: 'INFOQ',
+  qbitai: '量子位',
+  baidu: '百度资讯',
 };

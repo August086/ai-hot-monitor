@@ -123,7 +123,7 @@ export function Dashboard({
                 <i className={`desk-dot ${aiReady ? 'is-live' : ''}`} />
                 AI {aiReady ? 'ONLINE' : 'HEURISTIC'}
               </span>
-              <span>SOURCE · BING{stats?.bySource?.some((item) => item.key === 'twitter') ? ' + X' : ''}</span>
+              <span>SOURCE · {stats?.bySource?.length ? `${stats.bySource.length} 源在线` : 'WAITING'}</span>
               <span>{lastRun ? `LAST RUN ${relativeTime(lastRun.startedAt)}` : '等待首轮扫描'}</span>
             </div>
           </div>
@@ -298,7 +298,7 @@ export function Dashboard({
             </div>
             <div className="sys-terminal__body">
               <p>&gt; scheduler armed · interval 30m</p>
-              <p>&gt; sources: bing{aiReady ? ' + twitter' : ''}</p>
+              <p>&gt; sources: {stats?.bySource?.length ?? 0} channels active</p>
               <p>&gt; fingerprint dedupe: active</p>
               <p className="is-active">&gt; {lastRun ? `run#${lastRun.id} ${lastRun.status}` : 'awaiting first run'}_</p>
             </div>

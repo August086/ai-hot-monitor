@@ -2,7 +2,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 文档版本 | v1.4 |
+| 文档版本 | v1.5 |
 | 日期 | 2026-11-12 |
 | 状态 | 已实现并通过验收（Twitter 数据源待密钥联调） |
 | 关联需求 | [REQUIREMENTS.md](./REQUIREMENTS.md) |
@@ -27,8 +27,9 @@
 | --- | --- | --- |
 | 关键词增删改查 | `server/src/routes/keywords.js` | 唯一约束、长度校验、启用开关 |
 | 30 分钟定时抓取 | `server/src/scheduler.js` | 30 秒 tick 检查，间隔可在设置页改 |
-| 多数据源 | `server/src/services/sources/*` | Bing + Hacker News + arXiv + GDELT（HF 可选，X 需密钥） |
-| 时效过滤与排序 | `collector.js`、`db.js listHotspots` | 分源时效窗口；发布时间优先，无时间条目排后 |
+| 多数据源 | `server/src/services/sources/*` | HN + 国内科技媒体 RSS + 百度资讯；Bing/arXiv/GDELT 默认关闭 |
+| 质量闸门 | `sources/match.js`、`hackernews.js`、`baidu.js`、`collector.js` | 关键词守卫、HN 5/2、百度白名单、单源配额 |
+| 时效过滤与排序 | `collector.js`、`db.js listHotspots` | 48h 时效；发布时间优先，无时间条目排后 |
 | AI 真假识别 | `server/src/services/ai.js` | json_schema 强约束输出 |
 | 重复过滤 | `server/src/services/dedupe.js` | URL 指纹 + 中文标题相似度 |
 | 浏览器推送 | `server/src/ws.js` | 原生 WebSocket，事件 `hotspot:new` |
@@ -47,7 +48,7 @@
 | Web 框架 | Express 5.1 | 原生支持 async 路由错误传递 |
 | 数据库 | SQLite（WAL） | 单机 7x24、零运维，JSON 字段需求少 |
 | 抓取 | fetch + cheerio | 轻量、可控 UA/限速/重试 |
-| 资讯源 | Bing + HN(Algolia) + arXiv(Atom) + GDELT(DOC 2.0) + HF(可选) | 全部免密钥，覆盖新闻/社区/论文/模型四类信号 |
+| 资讯源 | HN(Algolia) + 4×国内科技媒体 RSS + 百度资讯 | 全部免密钥；只保留有稳定发布时间、可验证相关性的源 |
 | 实时 | ws 8.18 | 原生 WebSocketServer，可直接挂 HTTP server |
 | 邮件 | nodemailer 7 | 支持 QQ/163/Gmail/Outlook SMTP |
 | 调度 | 自研 tick 调度 | 间隔可从数据库热更新，无需重启 cron |
@@ -118,7 +119,7 @@ OPENROUTER_FALLBACK_MODEL=moonshotai/kimi-k3
 └───────────────┬──────────────────────────────────────────────────────────────┘
                 │
         ┌───────▼────────┐   抓取    ┌────────────────────────────────────┐
-        │ collector.js   │──────────▶│ Bing / HN / arXiv / GDELT / X(HF)  │
+        │ collector.js   │──────────▶│ HN / 4×RSS / 百度资讯（其余可开关）│
         │ 编排 + 时效+去重 │           └────────────────────────────────────┘
         │ AI 研判 + 通知  │──────────▶ OpenRouter（主模型 → 备用 → 启发式）
         └───────┬────────┘──────────▶ SMTP（nodemailer）
@@ -151,14 +152,18 @@ server/
       dedupe.js            URL 指纹 + 标题相似度
       ai.js                OpenRouter 研判与降级
       notifier.js          WS + 邮件分发
-      sources/bing.js      Bing 搜索解析
-      sources/hackernews.js Algolia 搜索（48h）
-      sources/arxiv.js     arXiv Atom（7d）
-      sources/gdelt.js     GDELT DOC 2.0（48h，串行限流）
-      sources/huggingface.js 模型上新（14d，默认关闭）
+      sources/match.js     关键词相关性守卫
+      sources/hackernews.js Algolia 搜索（48h，5/2 门槛）
+      sources/rss.js       国内科技媒体 RSS（48h，关键词过滤）
+      sources/baidu.js     百度资讯（48h，白名单媒体）
+      sources/bing.js      Bing（默认关闭）
+      sources/arxiv.js     arXiv（默认关闭）
+      sources/gdelt.js     GDELT（默认关闭）
+      sources/huggingface.js 模型上新（默认关闭）
       sources/twitter.js   twitterapi.io（可选）
   scripts/seed.js          演示数据（手动执行）
-  test/smoke.test.js       冒烟测试
+  test/sources.test.js     来源与质量闸门单测
+  test/smoke.test.js       API 冒烟测试
 web/
   src/
     App.tsx                布局、路由（hash）、WS 状态、Toast
@@ -262,7 +267,9 @@ web/
 
 ## 10. 数据源实现
 
-### 10.1 Bing 网页搜索
+> v1.5 起默认源为 HN + 4 个国内科技媒体 RSS + 百度资讯；Bing / arXiv / GDELT 代码保留但默认关闭，原因见各小节与 ADR-20。
+
+### 10.1 Bing 网页搜索（默认关闭）
 
 - URL：`https://www.bing.com/search?q=...&count=...&setlang=zh-hans&setmkt=zh-CN&mkt=zh-CN&cc=CN`
 - 关键点：必须携带 `mkt/setmkt=zh-CN`，否则区域会返回导航页（官网/应用商店）而非新闻结果。
@@ -282,28 +289,46 @@ web/
 
 - `GET https://hn.algolia.com/api/v1/search_by_date?query=...&tags=story&numericFilters=created_at_i>...`
 - 只取 48 小时内的帖子；`points + comments×2` 作为热度；无外链的 Ask/Show HN 回落到讨论页。
+- **质量门槛**：`points ≥ 5` 或 `comments ≥ 2`（可配）才入库；关键词必须出现在标题或 URL。
 - 无需 Key，实测延迟 1–2s，是开发者圈最快的公开信号源之一。
 
-### 10.4 arXiv
+### 10.4 arXiv（默认关闭）
 
 - `GET https://export.arxiv.org/api/query?search_query=all:<term>&sortBy=submittedDate&max_results=N`
-- 以 Atom XML 返回，解析标题、摘要、作者、`published`；保留 7 天内论文。
-- 适合追踪模型/算法层面的新论文，不追求“新闻性”。
+- 实测问题：`OpenAI` 会被拆成 `open` + `ai` 模糊匹配，返回数学/物理/机器人论文；即使 `ti:"OpenAI"` 仍混入数学论文。
+- 结论：与“新闻/热点”场景不匹配，默认 `ENABLE_ARXIV=false`；代码保留。
 
-### 10.5 GDELT DOC 2.0
+### 10.5 GDELT DOC 2.0（默认关闭）
 
 - `GET https://api.gdeltproject.org/api/v2/doc/doc?query=<term>&mode=artlist&timespan=2d&format=json`
-- 全球新闻索引，约 15 分钟更新；免费接口限流严格，按 10 秒串行调用，429 时重试一次。
-- 返回 `seendate`（`20261111T093000Z`）转为 ISO；中文覆盖取决于媒体收录情况。
+- 实测问题：免费接口按 IP 限流，10 秒串行 + 12 秒重试仍频繁返回 429。
+- 结论：默认 `ENABLE_GDELT=false`；代码保留，域名白/黑名单逻辑可用。
 
 ### 10.6 HuggingFace（可选，默认关闭）
 
 - `GET https://huggingface.co/api/models?search=<term>&sort=lastModified&direction=-1`
 - 用于捕捉模型上新；部分网络不可达，默认 `ENABLE_HF=false`，可访问时再打开。
 
-### 10.7 时效过滤
+### 10.7 国内科技媒体 RSS
 
-入库前统一检查 `publishedAt`：新闻类 48 小时、arXiv 7 天、HuggingFace 14 天；超时条目计入 `summary.stale` 并丢弃。无发布时间的 Bing 结果保留但排序靠后，前端默认用「仅有发布时间」开关隐藏。
+- 源：IT之家 `ithome.com/rss/`、Solidot `solidot.org/index.rss`、InfoQ 中国 `infoq.cn/feed`、量子位 `qbitai.com/feed`。
+- 解析：RSS 2.0 / Atom 均支持；统一 `pubDate/published` 为 ISO。
+- 过滤：标题或摘要命中关键词（英文词边界、中文子串）；48h 时效；每源每词最多 8 条。
+- 缓存：同一轮多个关键词共享 5 分钟 feed 缓存，减少请求。
+- 失败隔离：单源失败只记录 `runs.error`，不影响其他源。
+
+### 10.8 百度资讯
+
+- `GET https://news.baidu.com/ns?word=<term>&tn=news&from=news&cl=2&rn=20&ct=1`
+- 解析：优先读取结果节点内的 `s-data` JSON（`title/titleUrl/summary/sourceName/dispTime`），DOM class 仅作兜底。
+- 白名单：只保留 IT之家/36氪/机器之心/量子位/InfoQ/财联社/界面/金融界/华尔街见闻等媒体；百家号与未知来源丢弃。
+- 时间：支持“7小时前 / 昨天08:13 / 3天前 / 2026-11-11”，超过 48h 丢弃。
+- 反爬：3 组 UA 轮换、20s 超时、失败重试一次；命中验证码或异常页面直接跳过。
+- 注意：百度链接常为 `baijiahao`，但等级按解析出的**原媒体名**判定，不按链接域名。
+
+### 10.9 时效过滤
+
+入库前统一检查 `publishedAt`：新闻类 48 小时（RSS / 百度 / HN）；超时条目计入 `summary.stale` 并丢弃。搜索类结果没有可解析发布时间时直接丢弃；无时间条目不会进入默认「仅有发布时间」视图。
 
 ---
 
@@ -318,7 +343,7 @@ web/
 ## 12. 调度与任务生命周期
 
 - tick 间隔 30s，读取 `settings.collectInterval`（默认 30 分钟，可调 5–1440）。
-- 一轮采集：加锁 → 读取启用关键词（上限 10）→ 多源抓取 → 时效过滤 + 去重入库 → AI 研判（上限 12）→ 推送/通知 → 写 `runs` → 广播统计。
+- 一轮采集：加锁 → 读取启用关键词（上限 10）→ HN + RSS + 百度抓取 → 关键词守卫 → 时效过滤 → 去重 → 单源入库上限（10）→ 质量分排序 + round-robin（单源 ≤40%）→ AI 研判（上限 12）→ 推送/通知 → 写 `runs` → 广播统计。
 - 无新增时用剩余额度补研判 `pending` 积压，避免队列长期堆积。
 - 每日首次 tick 触发历史清理：删除超过保留天数且已通知的热点、旧通知与旧任务记录。
 
@@ -391,9 +416,9 @@ web/
 
 | 类型 | 内容 | 结果 |
 | --- | --- | --- |
-| 单元 | URL 归一化、指纹一致性、中文标题相似度 | 通过 |
+| 单元 | URL 归一化、指纹一致性、标题相似度、关键词守卫、HN 门槛、RSS/百度解析、配额 | 26/26 通过 |
 | API | 健康、统计、热点分页、关键词 CRUD/409、设置校验、通知、密钥不外泄 | 13/13 通过 |
-| 集成 | 真实 Bing 抓取、去重、AI 批量研判、WS 推送、邮件发送 | 通过 |
+| 集成 | 隔离库真实采集（HN + RSS + 百度）、去重、AI 批量研判、WS 推送、邮件发送 | 通过；9 条入库来自 4 个源，无 arXiv/GDELT/Bing |
 | 前端 | 四页渲染、筛选、抽屉、ESC 关闭、移动端布局、无 console 错误 | 通过 |
 | 视觉/可访问性 | 1440 与 390 宽四页截图；无横向溢出；对比度 ≥5.2:1；焦点环、触控尺寸、减弱动效 | 通过 |
 | 邮件 | QQ SMTP 自检 + 热点命中自动发送（浏览器+邮件双通道） | 通过，收件方已确认 |
@@ -407,10 +432,11 @@ web/
 ## 18. 已知限制与后续
 
 1. **模型区域限制**：OpenAI/Anthropic/Gemini 在当前区域 403，已切换 DeepSeek/Kimi；更换网络环境后可直接改 `.env` 恢复。
-2. **Bing 结果质量依赖关键词具体度**：宽泛词（如 `DeepSeek`）会命中官网/文档页；建议使用 `DeepSeek V4.1`、`Claude Code 更新` 等具体词。后续可增加新闻垂直源或站点白名单。
-3. **Twitter 未联调**：代码与最新文档一致，但缺 `TWITTERAPI_KEY`，尚未真实取数。
-4. **单进程单实例**：当前面向个人使用；多实例部署需把调度与 WS 改为外部协调（如 Redis）。
-5. **AI 事实核验边界**：模型无实时检索能力，真假判断基于来源与文本特征，不能替代人工核实。
+2. **来源覆盖仍有限**：默认只有 HN + 4 个 RSS + 百度资讯；安静时段可能条数偏少，但不再用 arXiv/GDELT 噪音填充。百度资讯依赖页面结构，触发验证码时会短暂缺失。
+3. **百度白名单需要维护**：媒体名来自百度结果，新增/改名时可能漏收；可在 `.env` 覆盖 `BAIDU_MEDIA_WHITELIST`。
+4. **Twitter 未联调**：代码与最新文档一致，但缺 `TWITTERAPI_KEY`，尚未真实取数。
+5. **单进程单实例**：当前面向个人使用；多实例部署需把调度与 WS 改为外部协调（如 Redis）。
+6. **AI 事实核验边界**：模型无实时检索能力，真假判断基于来源与文本特征，不能替代人工核实。
 
 ---
 
@@ -423,3 +449,4 @@ web/
 | 2026-11-12 | v1.2 | 前端改版为 SIGNAL DESK：墨色 + 信号橙/酸性绿、顶部指挥栏与信号走马灯、Hero 聚光灯与光束；引入 Tailwind CSS 4 + Aceternity UI + Motion（Context7 核对官方实现） |
 | 2026-11-12 | v1.3 | 解决“抓取内容陈旧”：接入 HN/arXiv/GDELT/HuggingFace，统一发布时间并做 48h 时效过滤；默认按发布时间排序，新增「仅有发布时间」筛选；去重窗口 7 天→48 小时；Bing 过滤导航型结果 |
 | 2026-11-12 | v1.4 | 可读性与可访问性打磨：对比度基线（--dim 3.67→5.47:1）、微标签字号下限、移动端触控尺寸、键盘焦点环、走马灯可聚焦暂停、触屏常显操作入口；环图中心文案修正为 SIGNALS |
+| 2026-11-12 | v1.5 | 来源可靠性 v2：关闭 Bing/arXiv/GDELT；新增百度资讯（白名单媒体）与 4 个国内科技媒体 RSS；加入关键词守卫、HN 5/2 门槛、单源入库上限与 AI 40% 配额 |

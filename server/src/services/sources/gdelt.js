@@ -12,6 +12,23 @@ const parseSeenDate = (value) => {
   return `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
 };
 
+export const inDomainList = (domain, rules = []) => {
+  const normalized = String(domain || '')
+    .toLowerCase()
+    .replace(/^www\./, '');
+  if (!normalized) return false;
+  return rules.some((rule) => normalized === rule || normalized.endsWith(`.${rule}`));
+};
+
+const domainOf = (article) => {
+  if (article.domain) return String(article.domain).toLowerCase().replace(/^www\./, '');
+  try {
+    return new URL(article.url).hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+};
+
 const request = (url) =>
   fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(25_000) });
 
@@ -54,13 +71,16 @@ export async function searchGdelt(keyword) {
       .map((article) => {
         const title = (article.title || '').trim();
         if (!title || !article.url) return null;
+        const domain = domainOf(article);
+        if (inDomainList(domain, config.quality.gdeltBlacklist)) return null;
         return {
           title,
           url: article.url,
-          snippet: `${article.domain || ''} · ${article.language || ''} · ${article.sourcecountry || ''}`.trim(),
-          author: article.domain || 'GDELT',
+          snippet: `${domain} · ${article.language || ''} · ${article.sourcecountry || ''}`.trim(),
+          author: domain || 'GDELT',
           publishedAt: parseSeenDate(article.seendate),
           engagement: 0,
+          tier: inDomainList(domain, config.quality.gdeltWhitelist) ? 'A' : 'B',
         };
       })
       .filter(Boolean);

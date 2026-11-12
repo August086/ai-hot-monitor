@@ -1,6 +1,6 @@
 # 第三方接口对接说明
 
-> 本文记录**实际实现**使用的接口写法。所有结论于 2026-11-11 通过 MCP 抓取官方文档核对，代码位置：`server/src/services/`。
+> 本文记录**实际实现**使用的接口写法。AI/邮件/X 接口于 2026-11-11 通过 MCP 抓取官方文档核对；来源取舍与实测结论于 2026-11-12 更新（v1.5）。代码位置：`server/src/services/`。
 
 ## 1. OpenRouter（AI 研判）
 
@@ -109,7 +109,9 @@ X-OpenRouter-Title: NEON WATCH - AI Hotspot Monitor
 
 ---
 
-## 3. Bing 网页搜索
+## 3. Bing 网页搜索（默认关闭）
+
+> v1.5 起默认关闭：库内 62 条 Bing 结果全部没有发布时间，默认视图下不可见。代码保留，`ENABLE_BING=true` 可回滚。
 
 **URL**
 
@@ -129,12 +131,24 @@ https://www.bing.com/search?q=<query>&count=<n>&setlang=zh-hans&setmkt=zh-CN&mkt
 
 ## 3.1 免费实时源
 
-| 源 | 端点 | 关键参数 | 时效 |
-| --- | --- | --- | --- |
-| Hacker News | `https://hn.algolia.com/api/v1/search_by_date` | `query`、`tags=story`、`numericFilters=created_at_i>...` | 48h |
-| arXiv | `https://export.arxiv.org/api/query` | `search_query=all:<term>`、`sortBy=submittedDate` | 7d |
-| GDELT | `https://api.gdeltproject.org/api/v2/doc/doc` | `mode=artlist`、`timespan=2d`、`format=json` | 2d（10s 节流） |
-| HuggingFace | `https://huggingface.co/api/models` | `search`、`sort=lastModified` | 14d（默认关闭） |
+| 源 | 状态 | 端点 | 关键参数 | 时效 |
+| --- | --- | --- | --- | --- |
+| Hacker News | 开 | `https://hn.algolia.com/api/v1/search_by_date` | `query`、`tags=story`、`numericFilters=created_at_i>...` | 48h |
+| IT之家 RSS | 开 | `https://www.ithome.com/rss/` | RSS 2.0 | 48h |
+| Solidot RSS | 开 | `https://www.solidot.org/index.rss` | RSS 2.0 | 48h |
+| InfoQ 中国 RSS | 开 | `https://www.infoq.cn/feed` | RSS 2.0 | 48h |
+| 量子位 RSS | 开 | `https://www.qbitai.com/feed` | RSS 2.0 | 48h |
+| 百度资讯 | 开 | `https://news.baidu.com/ns` | `word`、`tn=news`、`rn=20` | 48h |
+| arXiv | 关 | `https://export.arxiv.org/api/query` | `search_query=all:<term>`（相关性不可控） | 7d |
+| GDELT | 关 | `https://api.gdeltproject.org/api/v2/doc/doc` | `mode=artlist`、`timespan=2d`（429 限流） | 2d |
+| HuggingFace | 关 | `https://huggingface.co/api/models` | `search`、`sort=lastModified` | 14d |
+
+**百度资讯解析要点**
+
+- 结果节点 `div.result-op.c-container` 内嵌 `s-data` JSON，优先读取 `title / titleUrl / summary / sourceName / dispTime`。
+- 只保留白名单媒体（IT之家、36氪、机器之心、量子位、InfoQ、财联社、界面、金融界、华尔街见闻等）。
+- `dispTime` 支持“7小时前 / 昨天08:13 / 3天前 / 2026-11-11”，统一转为 ISO。
+- 命中验证码或异常页面直接跳过，不影响其他源。
 
 统一在入库前按 `publishedAt` 做时效过滤，细节见 [SOLUTION.md](./SOLUTION.md) 第 10 节。
 
