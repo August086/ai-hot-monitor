@@ -1,4 +1,14 @@
 export type Importance = 'low' | 'medium' | 'high' | 'urgent';
+export type AiStatus = 'pending' | 'analyzed' | 'heuristic' | 'failed';
+export type SortKey =
+  | 'latest'
+  | 'importance'
+  | 'relevance'
+  | 'engagement'
+  | 'recommended'
+  | 'pending'
+  | 'unnotified';
+export type TrustFilter = 'all' | 'real' | 'fake' | 'unknown';
 export type SourceKind =
   | 'bing'
   | 'twitter'
@@ -39,7 +49,7 @@ export interface Hotspot {
   importance: Importance | null;
   summary: string | null;
   aiModel: string | null;
-  aiStatus: 'pending' | 'analyzed' | 'heuristic' | 'failed';
+  aiStatus: AiStatus;
   aiReason: string | null;
   notified: boolean;
   createdAt: string;

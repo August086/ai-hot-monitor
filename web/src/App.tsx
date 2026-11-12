@@ -14,7 +14,7 @@ import type { Hotspot } from './types';
 type Toast = { id: number; message: string; tone: 'ok' | 'error' | 'signal' };
 
 const viewFromHash = (): ViewKey => {
-  const raw = window.location.hash.replace(/^#\/?/, '');
+  const raw = window.location.hash.replace(/^#\/?/, '').split('?')[0];
   const found = NAV_ITEMS.find((item) => item.key === raw);
   return found?.key ?? 'dashboard';
 };

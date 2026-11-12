@@ -7,8 +7,50 @@ import { broadcast } from '../ws.js';
 const router = Router();
 
 router.get('/', (req, res) => {
-  const { limit, offset, importance, source, isReal, status, keyword, q, days, dated, sort } = req.query;
-  res.json(listHotspots({ limit, offset, importance, source, isReal, status, keyword, q, days, dated, sort }));
+  const {
+    limit,
+    offset,
+    importance,
+    source,
+    isReal,
+    status,
+    keyword,
+    q,
+    qMode,
+    days,
+    hours,
+    from,
+    to,
+    dated,
+    notified,
+    relevanceMin,
+    engagementMin,
+    sort,
+    dir,
+  } = req.query;
+  res.json(
+    listHotspots({
+      limit,
+      offset,
+      importance,
+      source,
+      isReal,
+      status,
+      keyword,
+      q,
+      qMode,
+      days,
+      hours,
+      from,
+      to,
+      dated,
+      notified,
+      relevanceMin,
+      engagementMin,
+      sort,
+      dir,
+    }),
+  );
 });
 
 router.get('/:id', (req, res) => {

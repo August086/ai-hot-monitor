@@ -9,6 +9,7 @@ export function HotspotCard({
   index,
   onOpen,
   onAnalyze,
+  onFilterKeyword,
   analyzing = false,
   compact = false,
 }: {
@@ -16,6 +17,7 @@ export function HotspotCard({
   index?: number;
   onOpen: (hotspot: Hotspot) => void;
   onAnalyze?: (hotspot: Hotspot) => void;
+  onFilterKeyword?: (term: string) => void;
   analyzing?: boolean;
   compact?: boolean;
 }) {
@@ -44,7 +46,23 @@ export function HotspotCard({
             <TrustBadge isReal={hotspot.isReal} status={hotspot.aiStatus} />
             <span className={`tag tag--${importance}`}>{IMPORTANCE_LABEL[importance]}</span>
             <span className="tag tag--ghost">{SOURCE_LABEL[hotspot.source] || hotspot.source}</span>
-            {hotspot.keyword && <span className="tag tag--keyword">#{hotspot.keyword}</span>}
+            {hotspot.keyword &&
+              (onFilterKeyword ? (
+                <button
+                  type="button"
+                  className="tag tag--keyword tag--clickable"
+                  title={`只看关键词「${hotspot.keyword}」`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onFilterKeyword(hotspot.keyword as string);
+                  }}
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
+                  #{hotspot.keyword}
+                </button>
+              ) : (
+                <span className="tag tag--keyword">#{hotspot.keyword}</span>
+              ))}
           </div>
 
           <h3 className="hcard__title">{hotspot.title}</h3>

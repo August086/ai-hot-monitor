@@ -1,31 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { Hotspot, Importance } from '../types';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { Hotspot, Keyword } from '../types';
 import { api } from '../api';
 import { HotspotCard } from '../components/HotspotCard';
+import { HotspotFilters } from '../components/HotspotFilters';
 import { Icon, Panel } from '../components/Primitives';
-
-const IMPORTANCE_FILTERS: { key: Importance | 'all'; label: string }[] = [
-  { key: 'all', label: '全部等级' },
-  { key: 'urgent', label: '紧急' },
-  { key: 'high', label: '高' },
-  { key: 'medium', label: '中' },
-  { key: 'low', label: '低' },
-];
-
-const SOURCE_FILTERS = [
-  { key: 'all', label: '全部来源' },
-  { key: 'baidu', label: '百度资讯' },
-  { key: 'ithome', label: 'IT之家' },
-  { key: 'solidot', label: 'SOLIDOT' },
-  { key: 'infoq', label: 'INFOQ' },
-  { key: 'qbitai', label: '量子位' },
-  { key: 'hackernews', label: 'HN' },
-  { key: 'gdelt', label: 'GDELT' },
-  { key: 'arxiv', label: 'ARXIV' },
-  { key: 'huggingface', label: 'HF' },
-  { key: 'bing', label: 'WEB / BING' },
-  { key: 'twitter', label: 'X / TWITTER' },
-];
+import { filtersToParams, useHotspotFilters } from '../hooks/useHotspotFilters';
 
 export function Hotspots({
   pulse,
@@ -36,33 +15,33 @@ export function Hotspots({
   onOpen: (hotspot: Hotspot) => void;
   notify: (message: string, tone?: 'ok' | 'error') => void;
 }) {
+  const controls = useHotspotFilters();
+  const { filters, setFilters } = controls;
+
   const [items, setItems] = useState<Hotspot[]>([]);
   const [total, setTotal] = useState(0);
   const [limit, setLimit] = useState(20);
-  const [importance, setImportance] = useState<Importance | 'all'>('all');
-  const [source, setSource] = useState('all');
-  const [trust, setTrust] = useState<'all' | 'real' | 'fake'>('all');
-  const [sort, setSort] = useState<'latest' | 'importance'>('latest');
-  const [datedOnly, setDatedOnly] = useState(true);
-  const [query, setQuery] = useState('');
+  const [keywords, setKeywords] = useState<Keyword[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(true);
   const [analyzingId, setAnalyzingId] = useState<number | null>(null);
 
+  const params = useMemo(() => filtersToParams(filters), [filters]);
+  const filterKey = JSON.stringify(params);
+
+  // 筛选条件变化时回到第一页
+  const previousKey = useRef(filterKey);
+  if (previousKey.current !== filterKey) {
+    previousKey.current = filterKey;
+    if (limit !== 20) setLimit(20);
+  }
+
   useEffect(() => {
     let alive = true;
     setLoading(true);
     api
-      .hotspots({
-        limit,
-        importance: importance === 'all' ? undefined : importance,
-        source: source === 'all' ? undefined : source,
-        isReal: trust === 'all' ? undefined : trust === 'real',
-        q: query || undefined,
-        sort,
-        dated: datedOnly ? true : undefined,
-      })
+      .hotspots({ ...params, limit })
       .then((data) => {
         if (!alive) return;
         setItems(data.items);
@@ -73,7 +52,19 @@ export function Hotspots({
     return () => {
       alive = false;
     };
-  }, [importance, source, trust, query, limit, sort, datedOnly, pulse, notify]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey, limit, pulse, notify]);
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .keywords()
+      .then((data) => alive && setKeywords(data.items))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [pulse]);
 
   const summarize = useMemo(() => {
     const urgent = items.filter((item) => item.importance === 'urgent').length;
@@ -88,7 +79,7 @@ export function Hotspots({
     try {
       const result = await api.searchHotspots(term);
       notify(`实时抓取完成：命中 ${result.found} 条，新增 ${result.created} 条`);
-      setQuery(term);
+      setFilters({ q: term });
     } catch (error) {
       notify((error as Error).message, 'error');
     } finally {
@@ -138,91 +129,24 @@ export function Hotspots({
         </form>
       </div>
 
-      <div className="filterbar">
-        <div className="filterbar__group">
-          {IMPORTANCE_FILTERS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`chip-filter ${importance === item.key ? 'is-active' : ''} ${item.key === 'all' ? 'is-all' : ''}`}
-              onClick={() => setImportance(item.key)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-        <div className="filterbar__group">
-          {SOURCE_FILTERS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`chip-filter ${source === item.key ? 'is-active' : ''} ${item.key === 'all' ? 'is-all' : ''}`}
-              onClick={() => setSource(item.key)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-        <div className="filterbar__group">
-          {[
-            { key: 'all', label: '全部可信度' },
-            { key: 'real', label: '可信' },
-            { key: 'fake', label: '存疑' },
-          ].map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`chip-filter ${trust === item.key ? 'is-active' : ''} ${item.key === 'all' ? 'is-all' : ''}`}
-              onClick={() => setTrust(item.key as 'all' | 'real' | 'fake')}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-        <div className="filterbar__group">
-          <button
-            type="button"
-            className={`chip-filter ${sort === 'latest' ? 'is-active' : ''}`}
-            onClick={() => setSort('latest')}
-          >
-            最新优先
-          </button>
-          <button
-            type="button"
-            className={`chip-filter ${sort === 'importance' ? 'is-active' : ''}`}
-            onClick={() => setSort('importance')}
-          >
-            等级优先
-          </button>
-          <button
-            type="button"
-            className={`chip-filter ${datedOnly ? 'is-active' : ''}`}
-            onClick={() => setDatedOnly((value) => !value)}
-            title="隐藏没有发布时间的官网/文档页"
-          >
-            仅有发布时间
-          </button>
-        </div>
-        <div className="filterbar__search">
-          <Icon name="search" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="在结果中检索…"
-            aria-label="在结果中检索"
-          />
-          {query && (
-            <button type="button" onClick={() => setQuery('')} aria-label="清空检索">
-              <Icon name="close" />
-            </button>
-          )}
-        </div>
-      </div>
+      <HotspotFilters
+        controls={controls}
+        total={total}
+        keywordOptions={keywords.map((item) => ({ id: item.id, term: item.term }))}
+      />
 
       <div className="feed-meta">
         <span>匹配 {total} 条</span>
         <span className="feed-meta__warn">紧急 {summarize.urgent}</span>
         <span className="feed-meta__pending">待研判 {summarize.pending}</span>
+        {filters.q && (
+          <span>
+            检索「{filters.q}」
+            <button type="button" className="feed-meta__clear" onClick={() => setFilters({ q: '' })}>
+              清除
+            </button>
+          </span>
+        )}
       </div>
 
       <div className="hotspot-list">
@@ -235,6 +159,7 @@ export function Hotspots({
               index={index + 1}
               onOpen={onOpen}
               onAnalyze={analyze}
+              onFilterKeyword={(term) => setFilters({ keyword: term })}
               analyzing={analyzingId === item.id}
             />
           ))}

@@ -2,7 +2,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 文档版本 | v1.5 |
+| 文档版本 | v1.6 |
 | 日期 | 2026-11-12 |
 | 状态 | 已实现并通过验收（Twitter 数据源待密钥联调） |
 | 关联需求 | [REQUIREMENTS.md](./REQUIREMENTS.md) |
@@ -208,7 +208,7 @@ web/
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/api/hotspots` | 过滤：`limit/offset/importance/source/isReal/status/keyword/q/days/dated/sort`；`sort=latest|importance`，`dated=true` 仅返回有发布时间的条目 |
+| GET | `/api/hotspots` | 过滤：`limit/offset/importance/source/isReal/status/keyword/q/qMode/days/hours/from/to/dated/notified/relevanceMin/engagementMin`；`importance/source/status/isReal` 支持逗号多值；排序：`sort=latest\|importance\|relevance\|engagement\|recommended\|pending\|unnotified`，`dir=asc\|desc` |
 | GET | `/api/hotspots/:id` | 详情 |
 | POST | `/api/hotspots/search` | 即时抓取，body `{term, domain?, analyze?}` |
 | POST | `/api/hotspots/:id/analyze` | 单条重新研判 |
@@ -238,6 +238,41 @@ web/
 - 服务端事件：`connected`、`hotspot:new`、`hotspot:update`、`stats:update`、`run:update`、`notification`、`presence`
 - 客户端事件：`subscribe {keywords}`、`unsubscribe`、`ping`
 - 心跳：服务端 30s ping/pong；客户端 20s 应用层 ping。
+
+### 8.6 检索与排序
+
+**排序实现**（`db.js listHotspots` 的 `ORDER BY` 分支）
+
+| sort | 规则 |
+| --- | --- |
+| `latest` | 无发布时间沉底 → 有效时间 → 等级 |
+| `importance` | 等级 → 无时间沉底 → 有效时间 |
+| `relevance` | 有相关度优先 → 相关度 → 时间 |
+| `engagement` | 有热度优先 → 热度 → 时间 |
+| `recommended` | 综合分 → 无时间沉底 → 时间 |
+| `pending` | `pending/failed` 优先 → 时间 |
+| `unnotified` | `notified = 0` 优先 → 时间 |
+
+综合推荐分（纯 SQL 计算，不落库，随研判结果实时变化）：
+
+```
+等级（urgent 100 / high 70 / medium 40 / low 15 / 未评 25）× 0.4
++ relevance × 0.3
++ 48h 新鲜度（线性衰减）× 20
++ 热度分档（≥1000→10、≥300→8、≥100→6、≥30→4、>0→2）× 1
+− isReal=false 25
+− aiStatus=pending/failed 15
+```
+
+**筛选实现**：`importance/source/status` 逗号多值转 `IN (...)`；`isReal` 支持 `real/fake/unknown` 三态组合；`hours/days/from/to` 统一作用于有效时间（`COALESCE(published_at, created_at)`）；`relevanceMin/engagementMin` 为数值门槛；`notified` 过滤推送状态。
+
+**前端交互**（`hooks/useHotspotFilters.ts` + `components/HotspotFilters.tsx`）
+
+- 首屏只保留等级多选、可信度四态、排序下拉与「更多筛选」入口；其余条件收进右侧抽屉。
+- 已激活条件以 pill 行展示，支持逐项移除与「清空全部」。
+- 4 个内置预设 + 本机保存的自定义视图（`localStorage: neon-watch:filter-views`）。
+- 筛选状态写入 hash 查询段（`#/hotspots?sort=recommended&importance=urgent,high`），刷新、前进后退与分享均可还原。
+- 点击卡片上的 `#关键词` 标签可直接把该词加入筛选。
 
 ---
 
@@ -450,3 +485,4 @@ web/
 | 2026-11-12 | v1.3 | 解决“抓取内容陈旧”：接入 HN/arXiv/GDELT/HuggingFace，统一发布时间并做 48h 时效过滤；默认按发布时间排序，新增「仅有发布时间」筛选；去重窗口 7 天→48 小时；Bing 过滤导航型结果 |
 | 2026-11-12 | v1.4 | 可读性与可访问性打磨：对比度基线（--dim 3.67→5.47:1）、微标签字号下限、移动端触控尺寸、键盘焦点环、走马灯可聚焦暂停、触屏常显操作入口；环图中心文案修正为 SIGNALS |
 | 2026-11-12 | v1.5 | 来源可靠性 v2：关闭 Bing/arXiv/GDELT；新增百度资讯（白名单媒体）与 4 个国内科技媒体 RSS；加入关键词守卫、HN 5/2 门槛、单源入库上限与 AI 40% 配额 |
+| 2026-11-12 | v1.6 | 检索能力升级：新增 7 种排序（含综合推荐分）、等级/来源/状态多选、相关度与热度门槛、时间窗口与自定义区间、筛选抽屉、预设与自定义视图、URL 状态同步；新增 `relevance/engagement/published_at` 索引 |

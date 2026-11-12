@@ -41,6 +41,9 @@ CREATE TABLE IF NOT EXISTS hotspots (
 CREATE INDEX IF NOT EXISTS idx_hotspots_created ON hotspots(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_hotspots_keyword ON hotspots(keyword_id);
 CREATE INDEX IF NOT EXISTS idx_hotspots_importance ON hotspots(importance);
+CREATE INDEX IF NOT EXISTS idx_hotspots_relevance ON hotspots(relevance DESC);
+CREATE INDEX IF NOT EXISTS idx_hotspots_engagement ON hotspots(engagement DESC);
+CREATE INDEX IF NOT EXISTS idx_hotspots_published ON hotspots(published_at DESC);
 
 CREATE TABLE IF NOT EXISTS notifications (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -225,6 +228,60 @@ export const insertHotspot = (item) => {
 export const getHotspot = (id) =>
   mapHotspot(db.prepare('SELECT * FROM hotspots WHERE id = ?').get(Number(id)));
 
+const IMPORTANCE_VALUES = ['urgent', 'high', 'medium', 'low'];
+const AI_STATUS_VALUES = ['pending', 'analyzed', 'heuristic', 'failed'];
+export const SORT_KEYS = [
+  'latest',
+  'importance',
+  'relevance',
+  'engagement',
+  'recommended',
+  'pending',
+  'unnotified',
+];
+
+const EFFECTIVE_TIME = "COALESCE(NULLIF(published_at, ''), created_at)";
+const UNDATED_LAST = "CASE WHEN NULLIF(published_at, '') IS NULL THEN 1 ELSE 0 END";
+const IMPORTANCE_RANK =
+  "CASE importance WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END";
+
+/**
+ * 综合推荐分：等级 40% + 相关度 30% + 48h 新鲜度 20% + 热度 10%。
+ * 存疑条目扣 25，未研判扣 15，避免“噪音/空壳”占据榜首。
+ */
+const RECOMMEND_SCORE = `(
+  (CASE importance WHEN 'urgent' THEN 100 WHEN 'high' THEN 70 WHEN 'medium' THEN 40 WHEN 'low' THEN 15 ELSE 25 END) * 0.4
+  + COALESCE(relevance, 0) * 0.3
+  + MIN(1.0, MAX(0.0, (48 - (julianday('now') - julianday(${EFFECTIVE_TIME})) * 24) / 48.0)) * 20
+  + (CASE
+      WHEN engagement >= 1000 THEN 10
+      WHEN engagement >= 300 THEN 8
+      WHEN engagement >= 100 THEN 6
+      WHEN engagement >= 30 THEN 4
+      WHEN engagement > 0 THEN 2
+      ELSE 0
+    END)
+  + (CASE WHEN is_real = 0 THEN -25 ELSE 0 END)
+  + (CASE WHEN ai_status IN ('pending', 'failed') THEN -15 ELSE 0 END)
+)`;
+
+// 支持 "a,b" 逗号分隔与数组两种写法
+const asList = (value) => {
+  if (value === undefined || value === null || value === '') return [];
+  const raw = Array.isArray(value) ? value : String(value).split(',');
+  return raw.map((item) => String(item).trim()).filter(Boolean);
+};
+
+const dateBound = (value, endOfDay = false) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  if (endOfDay && /^\d{4}-\d{2}-\d{2}$/.test(String(value).trim())) {
+    parsed.setTime(parsed.getTime() + 86_399_999);
+  }
+  return parsed.toISOString();
+};
+
 export const listHotspots = ({
   limit = 50,
   offset = 0,
@@ -234,52 +291,130 @@ export const listHotspots = ({
   status,
   keyword,
   q,
+  qMode,
   days,
+  hours,
+  from,
+  to,
   dated,
+  notified,
+  relevanceMin,
+  engagementMin,
   sort = 'latest',
+  dir = 'desc',
 } = {}) => {
   const where = [];
   const params = [];
-  if (importance) {
-    where.push('importance = ?');
-    params.push(importance);
+
+  const importanceList = asList(importance).filter((value) => IMPORTANCE_VALUES.includes(value));
+  if (importanceList.length) {
+    where.push(`importance IN (${importanceList.map(() => '?').join(', ')})`);
+    params.push(...importanceList);
   }
-  if (source) {
-    where.push('source = ?');
-    params.push(source);
+
+  const sourceList = asList(source);
+  if (sourceList.length) {
+    where.push(`source IN (${sourceList.map(() => '?').join(', ')})`);
+    params.push(...sourceList);
   }
-  if (isReal !== undefined && isReal !== null && isReal !== '') {
-    where.push('is_real = ?');
-    params.push(String(isReal) === 'true' ? 1 : 0);
+
+  // true/real → 可信；false/fake → 存疑；unknown → 未研判
+  const trustList = asList(isReal).map((value) => value.toLowerCase());
+  if (trustList.length && !trustList.includes('all')) {
+    const parts = [];
+    if (trustList.some((value) => value === 'true' || value === 'real' || value === '1')) {
+      parts.push('is_real = 1');
+    }
+    if (trustList.some((value) => value === 'false' || value === 'fake' || value === '0')) {
+      parts.push('is_real = 0');
+    }
+    if (trustList.some((value) => value === 'unknown' || value === 'null')) {
+      parts.push('is_real IS NULL');
+    }
+    if (parts.length) where.push(`(${parts.join(' OR ')})`);
   }
-  if (status) {
-    where.push('ai_status = ?');
-    params.push(status);
+
+  const statusList = asList(status).filter((value) => AI_STATUS_VALUES.includes(value));
+  if (statusList.length) {
+    where.push(`ai_status IN (${statusList.map(() => '?').join(', ')})`);
+    params.push(...statusList);
   }
+
   if (keyword) {
     where.push('(keyword = ? OR title LIKE ?)');
     params.push(keyword, `%${keyword}%`);
   }
+
   if (q) {
-    where.push('(title LIKE ? OR snippet LIKE ? OR summary LIKE ?)');
-    params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+    if (String(qMode) === 'title') {
+      where.push('title LIKE ?');
+      params.push(`%${q}%`);
+    } else {
+      where.push('(title LIKE ? OR snippet LIKE ? OR summary LIKE ?)');
+      params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+    }
   }
-  if (days) {
-    where.push("COALESCE(NULLIF(published_at, ''), created_at) >= ?");
-    params.push(new Date(Date.now() - Number(days) * 86400_000).toISOString());
+
+  const windowHours = Number(hours);
+  const since =
+    Number.isFinite(windowHours) && windowHours > 0
+      ? new Date(Date.now() - windowHours * 3600_000).toISOString()
+      : days
+        ? new Date(Date.now() - Number(days) * 86_400_000).toISOString()
+        : null;
+  if (since) {
+    where.push(`${EFFECTIVE_TIME} >= ?`);
+    params.push(since);
   }
+
+  const fromBound = dateBound(from);
+  if (fromBound) {
+    where.push(`${EFFECTIVE_TIME} >= ?`);
+    params.push(fromBound);
+  }
+  const toBound = dateBound(to, true);
+  if (toBound) {
+    where.push(`${EFFECTIVE_TIME} <= ?`);
+    params.push(toBound);
+  }
+
   if (dated === true || dated === 'true') {
     where.push("published_at IS NOT NULL AND published_at != ''");
   }
+
+  if (notified === true || notified === 'true') {
+    where.push('notified = 1');
+  } else if (notified === false || notified === 'false') {
+    where.push('notified = 0');
+  }
+
+  const relevanceFloor = Number(relevanceMin);
+  if (Number.isFinite(relevanceFloor) && relevanceFloor > 0) {
+    where.push('relevance >= ?');
+    params.push(Math.min(Math.max(relevanceFloor, 0), 100));
+  }
+
+  const engagementFloor = Number(engagementMin);
+  if (Number.isFinite(engagementFloor) && engagementFloor > 0) {
+    where.push('engagement >= ?');
+    params.push(engagementFloor);
+  }
+
   const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
-  const effectiveTime = "COALESCE(NULLIF(published_at, ''), created_at)";
-  const undatedLast = "CASE WHEN NULLIF(published_at, '') IS NULL THEN 1 ELSE 0 END";
-  const importanceOrder =
-    "CASE importance WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END";
-  const orderBy =
-    sort === 'importance'
-      ? `${importanceOrder}, ${undatedLast}, ${effectiveTime} DESC`
-      : `${undatedLast}, ${effectiveTime} DESC, ${importanceOrder}`;
+  // dir 只影响时间/相关度/热度这类连续量；等级与综合分始终按“好在前”排序
+  const direction = String(dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const timeOrder = `${UNDATED_LAST}, ${EFFECTIVE_TIME} ${direction}`;
+  const orders = {
+    latest: `${timeOrder}, ${IMPORTANCE_RANK}`,
+    importance: `${IMPORTANCE_RANK}, ${timeOrder}`,
+    relevance: `CASE WHEN relevance IS NULL THEN 1 ELSE 0 END, relevance ${direction}, ${EFFECTIVE_TIME} DESC`,
+    engagement: `CASE WHEN engagement > 0 THEN 0 ELSE 1 END, engagement ${direction}, ${EFFECTIVE_TIME} DESC`,
+    recommended: `${RECOMMEND_SCORE} DESC, ${UNDATED_LAST}, ${EFFECTIVE_TIME} DESC`,
+    pending: `CASE WHEN ai_status IN ('pending', 'failed') THEN 0 ELSE 1 END, ${EFFECTIVE_TIME} DESC`,
+    unnotified: `CASE WHEN notified = 0 THEN 0 ELSE 1 END, ${EFFECTIVE_TIME} DESC`,
+  };
+  const orderBy = orders[sort] || orders.latest;
+
   const rows = db
     .prepare(
       `SELECT * FROM hotspots ${clause}

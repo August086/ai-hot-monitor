@@ -66,10 +66,22 @@ async function main() {
       if (flags.importance) search.set('importance', String(flags.importance));
       if (flags.source) search.set('source', String(flags.source));
       if (flags.days) search.set('days', String(flags.days));
+      if (flags.hours) search.set('hours', String(flags.hours));
       if (flags.q) search.set('q', String(flags.q));
       if (flags.keyword) search.set('keyword', String(flags.keyword));
-      if (flags.real) search.set('isReal', 'true');
-      if (flags.fake) search.set('isReal', 'false');
+      if (flags.real) search.set('isReal', 'real');
+      if (flags.fake) search.set('isReal', 'fake');
+      if (flags.unknown) search.set('isReal', 'unknown');
+      if (flags.status) search.set('status', String(flags.status));
+      if (flags['relevance-min']) search.set('relevanceMin', String(flags['relevance-min']));
+      if (flags['engagement-min']) search.set('engagementMin', String(flags['engagement-min']));
+      if (flags.from) search.set('from', String(flags.from));
+      if (flags.to) search.set('to', String(flags.to));
+      if (flags.notified) search.set('notified', String(flags.notified));
+      if (flags.sort) search.set('sort', String(flags.sort));
+      if (flags.dir) search.set('dir', String(flags.dir));
+      if (flags['title-only']) search.set('qMode', 'title');
+      if (flags.dated) search.set('dated', 'true');
       out(await request(`/api/hotspots?${search.toString()}`));
       return;
     }
@@ -166,7 +178,11 @@ async function main() {
           '',
           '可用命令：',
           '  stats',
-          '  hotspots [--limit N] [--importance urgent|high|medium|low] [--days N] [--q 文本] [--real|--fake]',
+          '  hotspots [--limit N] [--importance urgent,high] [--source baidu,ithome] [--hours N|--days N]',
+          '           [--sort latest|importance|relevance|engagement|recommended|pending|unnotified]',
+          '           [--relevance-min N] [--engagement-min N] [--status analyzed,heuristic]',
+          '           [--notified true|false] [--from YYYY-MM-DD] [--to YYYY-MM-DD]',
+          '           [--q 文本] [--title-only] [--real|--fake|--unknown] [--keyword 词] [--dated]',
           '  get <id>',
           '  search <关键词> [--domain 范围] [--no-ai]',
           '  analyze <id>',

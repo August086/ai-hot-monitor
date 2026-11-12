@@ -77,6 +77,39 @@ await check('GET /api/hotspots 返回分页结构', async () => {
   }
 });
 
+await check('GET /api/hotspots 支持多选等级与综合排序', async () => {
+  const { status, body } = await api('/api/hotspots?sort=recommended&importance=urgent,high&limit=10');
+  assert.equal(status, 200);
+  assert.ok(Array.isArray(body.items));
+  for (const item of body.items) {
+    assert.ok(['urgent', 'high'].includes(item.importance), `未过滤的等级 ${item.importance}`);
+  }
+});
+
+await check('GET /api/hotspots 相关度门槛生效', async () => {
+  const { status, body } = await api('/api/hotspots?relevanceMin=80&limit=10');
+  assert.equal(status, 200);
+  for (const item of body.items) {
+    assert.ok(item.relevance >= 80, `relevance=${item.relevance}`);
+  }
+});
+
+await check('GET /api/hotspots 未知筛选值回落为默认排序', async () => {
+  const { status, body } = await api('/api/hotspots?sort=whatever&trust=nope&limit=3');
+  assert.equal(status, 200);
+  assert.ok(Array.isArray(body.items));
+});
+
+await check('GET /api/hotspots 时间窗口过滤不超过窗口', async () => {
+  const { status, body } = await api('/api/hotspots?hours=6&limit=10');
+  assert.equal(status, 200);
+  const limit = Date.now() - 6 * 3600_000 - 60_000;
+  for (const item of body.items) {
+    const time = Date.parse(item.publishedAt || item.createdAt);
+    assert.ok(time >= limit, `超出 6h 窗口：${item.publishedAt || item.createdAt}`);
+  }
+});
+
 const term = `测试词-${Date.now()}`;
 let keywordId = null;
 
