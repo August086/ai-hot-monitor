@@ -218,8 +218,12 @@ export function Sparkline({ points, accent = 'cyan' }: { points: number[]; accen
 /* ---------------- Donut ---------------- */
 const DONUT_COLORS: Record<string, string> = {
   bing: '#ff5c1a',
-  twitter: '#ffb020',
-  seed: '#c6ff3d',
+  hackernews: '#ffb020',
+  gdelt: '#ffd166',
+  arxiv: '#c6ff3d',
+  huggingface: '#7ee787',
+  twitter: '#90cdf4',
+  seed: '#55677e',
 };
 
 export function Donut({ data }: { data: { key: string; count: number }[] }) {
@@ -251,7 +255,7 @@ export function Donut({ data }: { data: { key: string; count: number }[] }) {
           {total}
         </text>
         <text x="60" y="73" textAnchor="middle" className="donut__caption">
-          SOURCES
+          SIGNALS
         </text>
       </svg>
       <ul className="donut__legend">

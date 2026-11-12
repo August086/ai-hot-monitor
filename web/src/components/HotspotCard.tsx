@@ -57,7 +57,11 @@ export function HotspotCard({
           )}
 
           <div className="hcard__meta">
-            <span>{relativeTime(hotspot.createdAt)}</span>
+            <span>
+              {hotspot.publishedAt && /^\d{4}-\d{2}-\d{2}/.test(hotspot.publishedAt)
+                ? `发布 ${relativeTime(hotspot.publishedAt)}`
+                : `入库 ${relativeTime(hotspot.createdAt)}`}
+            </span>
             <span className="dot" />
             <span>{hotspot.aiModel || 'AI PENDING'}</span>
             {hotspot.relevance !== null && (

@@ -121,8 +121,22 @@ https://www.bing.com/search?q=<query>&count=<n>&setlang=zh-hans&setmkt=zh-CN&mkt
 
 - 必须带 `mkt=zh-CN&setmkt=zh-CN`，否则区域返回导航页（官网/应用商店）而非资讯。
 - 解析 `li.b_algo`：`h2 a` 取标题与链接，`.b_caption p` 取摘要，`.news_dt` 取日期（用正则校验，避免把 attribution 的链接当成日期）。
+- 过滤官网首页、应用商店、百科等导航型结果；日期统一转换为 ISO。
 - 反爬：4 组 UA 轮换、`Accept-Language`、20s 超时、失败重试 1 次、关键词间默认 6s（配置下限 3s）。
 - 命中验证码/异常流量页时抛错，错误写入 `runs.error`，不污染数据。
+
+---
+
+## 3.1 免费实时源
+
+| 源 | 端点 | 关键参数 | 时效 |
+| --- | --- | --- | --- |
+| Hacker News | `https://hn.algolia.com/api/v1/search_by_date` | `query`、`tags=story`、`numericFilters=created_at_i>...` | 48h |
+| arXiv | `https://export.arxiv.org/api/query` | `search_query=all:<term>`、`sortBy=submittedDate` | 7d |
+| GDELT | `https://api.gdeltproject.org/api/v2/doc/doc` | `mode=artlist`、`timespan=2d`、`format=json` | 2d（10s 节流） |
+| HuggingFace | `https://huggingface.co/api/models` | `search`、`sort=lastModified` | 14d（默认关闭） |
+
+统一在入库前按 `publishedAt` 做时效过滤，细节见 [SOLUTION.md](./SOLUTION.md) 第 10 节。
 
 ---
 

@@ -15,8 +15,11 @@ const IMPORTANCE_FILTERS: { key: Importance | 'all'; label: string }[] = [
 const SOURCE_FILTERS = [
   { key: 'all', label: '全部来源' },
   { key: 'bing', label: 'WEB / BING' },
+  { key: 'hackernews', label: 'HN' },
+  { key: 'gdelt', label: 'GDELT' },
+  { key: 'arxiv', label: 'ARXIV' },
+  { key: 'huggingface', label: 'HF' },
   { key: 'twitter', label: 'X / TWITTER' },
-  { key: 'seed', label: 'DEMO' },
 ];
 
 export function Hotspots({
@@ -34,6 +37,8 @@ export function Hotspots({
   const [importance, setImportance] = useState<Importance | 'all'>('all');
   const [source, setSource] = useState('all');
   const [trust, setTrust] = useState<'all' | 'real' | 'fake'>('all');
+  const [sort, setSort] = useState<'latest' | 'importance'>('latest');
+  const [datedOnly, setDatedOnly] = useState(true);
   const [query, setQuery] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [searching, setSearching] = useState(false);
@@ -50,6 +55,8 @@ export function Hotspots({
         source: source === 'all' ? undefined : source,
         isReal: trust === 'all' ? undefined : trust === 'real',
         q: query || undefined,
+        sort,
+        dated: datedOnly ? true : undefined,
       })
       .then((data) => {
         if (!alive) return;
@@ -61,7 +68,7 @@ export function Hotspots({
     return () => {
       alive = false;
     };
-  }, [importance, source, trust, query, limit, pulse, notify]);
+  }, [importance, source, trust, query, limit, sort, datedOnly, pulse, notify]);
 
   const summarize = useMemo(() => {
     const urgent = items.filter((item) => item.importance === 'urgent').length;
@@ -166,6 +173,30 @@ export function Hotspots({
               {item.label}
             </button>
           ))}
+        </div>
+        <div className="filterbar__group">
+          <button
+            type="button"
+            className={`chip-filter ${sort === 'latest' ? 'is-active' : ''}`}
+            onClick={() => setSort('latest')}
+          >
+            最新优先
+          </button>
+          <button
+            type="button"
+            className={`chip-filter ${sort === 'importance' ? 'is-active' : ''}`}
+            onClick={() => setSort('importance')}
+          >
+            等级优先
+          </button>
+          <button
+            type="button"
+            className={`chip-filter ${datedOnly ? 'is-active' : ''}`}
+            onClick={() => setDatedOnly((value) => !value)}
+            title="隐藏没有发布时间的官网/文档页"
+          >
+            仅有发布时间
+          </button>
         </div>
         <div className="filterbar__search">
           <Icon name="search" />

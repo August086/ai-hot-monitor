@@ -1278,3 +1278,203 @@ body {
     font-size: 24px;
   }
 }
+
+/* ============================================================
+   v2.1 · 可读性 / 可访问性打磨
+   不改结构，只抬对比度、字号下限与触控尺寸
+   ============================================================ */
+
+/* 键盘焦点统一可见 */
+:where(button, a, input, select, textarea, [role='button']):focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+}
+.hcard:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+}
+
+/* 走马灯：悬停或键盘聚焦即暂停 */
+.ticker:hover .ticker__track,
+.ticker:focus-within .ticker__track {
+  animation-play-state: paused;
+}
+
+/* 实时数字等宽，刷新不抖动 */
+.desk-now__count b,
+.strip-cell b,
+.activity__head b,
+.stat__value,
+.sys-list b {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 中文标题：收紧过度负字距，放宽行高 */
+.desk-title {
+  letter-spacing: -0.6px;
+  line-height: 1.08;
+}
+
+/* 微标签字号下限 */
+.brand__text em {
+  font-size: 9px;
+  letter-spacing: 2.2px;
+}
+.topnav__no {
+  font-size: 9px;
+}
+.live-pill,
+.ai-pill {
+  font-size: 10px;
+}
+.ticker__item {
+  font-size: 11.5px;
+}
+.ticker__meta {
+  font-size: 9.5px;
+}
+.desk-eyebrow {
+  font-size: 10.5px;
+}
+.desk-meta {
+  font-size: 10px;
+  letter-spacing: 1.2px;
+}
+.desk-now__head span {
+  font-size: 10px;
+}
+.desk-now__count em {
+  font-size: 9px;
+}
+.desk-now__ticker {
+  font-size: 11.5px;
+}
+.desk-now__ticker span {
+  font-size: 9px;
+}
+.now-item__body b {
+  font-size: 14px;
+}
+.now-item__body em {
+  font-size: 9.5px;
+  letter-spacing: 1.1px;
+}
+.strip-cell span {
+  font-size: 9.5px;
+}
+.strip-cell em {
+  font-size: 9px;
+}
+.panel-kicker {
+  font-size: 9.5px;
+}
+.verdict-note {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.tag {
+  font-size: 9.5px;
+}
+.hcard__meta {
+  font-size: 9.5px;
+}
+.hcard__prompt {
+  font-size: 9.5px;
+}
+.hcard__action {
+  font-size: 10px;
+  padding: 4px 10px;
+}
+.hcard__summary {
+  font-size: 12.5px;
+  color: #9fadbe;
+}
+.hcard--compact .hcard__title {
+  font-size: 14px;
+}
+.sys-terminal__bar {
+  font-size: 9.5px;
+}
+.sys-terminal__body {
+  font-size: 10px;
+  color: #8593a3;
+}
+.footer {
+  font-size: 9.5px;
+}
+.footer__diag {
+  color: rgba(255, 92, 26, 0.72);
+}
+
+/* 触控目标尺寸 */
+.topnav__item {
+  min-height: 38px;
+}
+.scan-cta__inner {
+  min-height: 34px;
+}
+.chip-filter {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+}
+.quick-search button {
+  min-height: 30px;
+  padding: 0 14px;
+}
+.icon-btn {
+  width: 32px;
+  height: 32px;
+}
+.btn {
+  min-height: 34px;
+}
+
+/* 触屏没有 hover：入口提示常显 */
+@media (hover: none) {
+  .hcard__enter {
+    opacity: 0.75;
+  }
+  .now-item__arrow {
+    opacity: 0.55;
+  }
+}
+
+@media (max-width: 880px) {
+  .scan-cta__inner {
+    min-height: 44px;
+    padding: 0 16px;
+    font-size: 11px;
+  }
+  .chip-filter {
+    min-height: 38px;
+    padding: 0 14px;
+    font-size: 11px;
+  }
+  .quick-search {
+    height: 44px;
+  }
+  .quick-search button {
+    height: 34px;
+  }
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+  .icon-btn .icon {
+    width: 16px;
+    height: 16px;
+  }
+  .btn {
+    min-height: 42px;
+  }
+  .mobile-nav__item {
+    font-size: 10px;
+  }
+  .desk-meta {
+    font-size: 10.5px;
+  }
+  .hcard__meta {
+    font-size: 10px;
+  }
+}

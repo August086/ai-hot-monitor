@@ -196,7 +196,7 @@ web/
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/api/hotspots` | 过滤：`limit/offset/importance/source/isReal/status/keyword/q/days` |
+| GET | `/api/hotspots` | 过滤：`limit/offset/importance/source/isReal/status/keyword/q/days/dated/sort`；`sort=latest|importance`，`dated=true` 仅返回有发布时间的条目 |
 | GET | `/api/hotspots/:id` | 详情 |
 | POST | `/api/hotspots/search` | 即时抓取，body `{term, domain?, analyze?}` |
 | POST | `/api/hotspots/:id/analyze` | 单条重新研判 |
@@ -259,7 +259,8 @@ web/
 
 - URL：`https://www.bing.com/search?q=...&count=...&setlang=zh-hans&setmkt=zh-CN&mkt=zh-CN&cc=CN`
 - 关键点：必须携带 `mkt/setmkt=zh-CN`，否则区域会返回导航页（官网/应用商店）而非新闻结果。
-- 解析：`li.b_algo` → `h2 a`（标题/链接）、`.b_caption p`（摘要）、`.news_dt`（日期，需正则校验，避免把 attribution 链接当日期）。
+- 解析：`li.b_algo` → `h2 a`（标题/链接）、`.b_caption p`（摘要）、`.news_dt`（日期）。
+- 过滤：跳过官网首页、应用商店、百科等导航型结果；日期支持 `2026-09-11`、`2026年9月11日`、`1 天前`、`昨天` 等写法并统一为 ISO。
 - 反爬：4 组 UA 轮换、`Accept-Language`、15s 超时、失败重试 1 次、关键词间 6s 间隔（不低于 3s）。
 - 拦截识别：命中验证码/异常流量文案直接抛错并记录到 `runs.error`。
 
@@ -270,12 +271,39 @@ web/
 - 热度值 = 点赞 + 转发×2 + 回复 + 引用，用于后续重要度判断。
 - 未配置 Key 时整源跳过并记录，不影响主流程。
 
+### 10.3 Hacker News（Algolia）
+
+- `GET https://hn.algolia.com/api/v1/search_by_date?query=...&tags=story&numericFilters=created_at_i>...`
+- 只取 48 小时内的帖子；`points + comments×2` 作为热度；无外链的 Ask/Show HN 回落到讨论页。
+- 无需 Key，实测延迟 1–2s，是开发者圈最快的公开信号源之一。
+
+### 10.4 arXiv
+
+- `GET https://export.arxiv.org/api/query?search_query=all:<term>&sortBy=submittedDate&max_results=N`
+- 以 Atom XML 返回，解析标题、摘要、作者、`published`；保留 7 天内论文。
+- 适合追踪模型/算法层面的新论文，不追求“新闻性”。
+
+### 10.5 GDELT DOC 2.0
+
+- `GET https://api.gdeltproject.org/api/v2/doc/doc?query=<term>&mode=artlist&timespan=2d&format=json`
+- 全球新闻索引，约 15 分钟更新；免费接口限流严格，按 10 秒串行调用，429 时重试一次。
+- 返回 `seendate`（`20261111T093000Z`）转为 ISO；中文覆盖取决于媒体收录情况。
+
+### 10.6 HuggingFace（可选，默认关闭）
+
+- `GET https://huggingface.co/api/models?search=<term>&sort=lastModified&direction=-1`
+- 用于捕捉模型上新；部分网络不可达，默认 `ENABLE_HF=false`，可访问时再打开。
+
+### 10.7 时效过滤
+
+入库前统一检查 `publishedAt`：新闻类 48 小时、arXiv 7 天、HuggingFace 14 天；超时条目计入 `summary.stale` 并丢弃。无发布时间的 Bing 结果保留但排序靠后，前端默认用「仅有发布时间」开关隐藏。
+
 ---
 
 ## 11. 去重策略
 
 1. **URL 指纹**：去掉 `utm_* / ref / spm` 等跟踪参数、fragment、末尾斜杠、`www.`，参数排序后 SHA-256，取前 32 位作为唯一指纹。
-2. **标题相似度**：中文按字符二元组计算 Dice 系数，与近 7 天标题比较，≥ 0.86 视为重复（缓存 60s，写入后失效）。
+2. **标题相似度**：中文按字符二元组计算 Dice 系数，与近 48 小时标题比较，≥ 0.86 视为重复（缓存 60s，写入后失效）。
 3. 两条规则命中任一即丢弃，避免同一事件被多家转载刷屏。
 
 ---
@@ -374,3 +402,4 @@ web/
 | 2026-11-11 | v1.0 | 完成需求分析与方案设计；实现后端、前端、Agent Skill；接入 OpenRouter 与 QQ SMTP；通过测试与验收 |
 | 2026-11-11 | v1.1 | 依据 MCP 最新文档将 `X-Title` 改为 `X-OpenRouter-Title`，结构化输出由 `json_object` 升级为 `json_schema + strict`；实测 `require_parameters` 会跳过 DeepSeek 端点故未启用；Bing 增加 `mkt=zh-CN` |
 | 2026-11-12 | v1.2 | 前端改版为 SIGNAL DESK：墨色 + 信号橙/酸性绿、顶部指挥栏与信号走马灯、Hero 聚光灯与光束；引入 Tailwind CSS 4 + Aceternity UI + Motion（Context7 核对官方实现） |
+| 2026-11-12 | v1.3 | 解决“抓取内容陈旧”：接入 HN/arXiv/GDELT/HuggingFace，统一发布时间并做 48h 时效过滤；默认按发布时间排序，新增「仅有发布时间」筛选；去重窗口 7 天→48 小时；Bing 过滤导航型结果 |

@@ -19,3 +19,12 @@ server/data/
 .DS_Store
 Thumbs.db
 .uploads/
+
+# ---- 第三方 Skill 安装产物（用 skills-lock.json 复现，不提交大体积数据）----
+.agents/
+.claude/
+.codeartsdoer/
+.codebuddy/
+.qoder/
+.zcode/
+.trae/skills/ui-ux-pro-max/

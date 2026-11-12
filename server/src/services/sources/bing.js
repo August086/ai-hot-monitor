@@ -27,6 +27,39 @@ function isBlockedPage(html) {
   );
 }
 
+function parsePublishedDate(text) {
+  if (!text) return null;
+  const trimmed = text.trim();
+  const now = Date.now();
+
+  const relative = /^(\d+)\s*(分钟|小时|天)前/.exec(trimmed);
+  if (relative) {
+    const unit = { 分钟: 60_000, 小时: 3_600_000, 天: 86_400_000 }[relative[2]];
+    return new Date(now - Number(relative[1]) * unit).toISOString();
+  }
+  if (/^昨天/.test(trimmed)) return new Date(now - 86_400_000).toISOString();
+  if (/^今天|^刚刚/.test(trimmed)) return new Date().toISOString();
+
+  const match = /(\d{4})[-/年.](\d{1,2})[-/月.](\d{1,2})/.exec(trimmed);
+  if (match) {
+    const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 8));
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  return null;
+}
+
+function isNavigational(title, href) {
+  try {
+    const url = new URL(href);
+    if (url.pathname === '/' || url.pathname === '') return true;
+    if (/(百度百科|维基百科|App Store|应用商店|官方入口|官方网址|官网首页)/.test(title)) return true;
+    if (/^(GitHub|DeepSeek|OpenAI|Anthropic|Claude)$/i.test(title.trim())) return true;
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 function parseResults(html, limit) {
   const $ = cheerio.load(html);
   const results = [];
@@ -36,7 +69,7 @@ function parseResults(html, limit) {
     const link = $(node).find('h2 a').first();
     const title = link.text().trim();
     const href = link.attr('href') || '';
-    if (!title || !/^https?:\/\//.test(href)) return;
+    if (!title || !/^https?:\/\//.test(href) || isNavigational(title, href)) return;
     const snippet = $(node)
       .find('.b_caption p, .b_snippet, .b_lineclamp2, .b_algoSlug')
       .first()
@@ -44,16 +77,12 @@ function parseResults(html, limit) {
       .trim();
     const rawDate = $(node).find('.news_dt').first().text().trim();
     const attribution = $(node).find('.b_attribution').first().text().trim();
-    const dateText = /^\d{4}[-/年.]\d{1,2}/.test(rawDate)
-      ? rawDate
-      : /^\d{4}[-/年.]\d{1,2}/.test(attribution)
-        ? attribution.split(/[·|]/)[0].trim()
-        : null;
+    const publishedAt = parsePublishedDate(rawDate) || parsePublishedDate(attribution);
     results.push({
       title: title.replace(/\s+/g, ' '),
       url: href,
       snippet: snippet.replace(/\s+/g, ' ').slice(0, 500),
-      publishedAt: dateText,
+      publishedAt,
     });
     return undefined;
   });

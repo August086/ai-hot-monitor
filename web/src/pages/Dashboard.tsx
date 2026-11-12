@@ -173,8 +173,8 @@ export function Dashboard({
 
         <div className="desk-hero__strip">
           <div className="strip-cell">
-            <span>24H 新信号</span>
-            <b>{stats?.today ?? 0}</b>
+            <span>48H 新动态</span>
+            <b>{stats?.fresh ?? 0}</b>
           </div>
           <div className="strip-cell">
             <span>累计信号</span>

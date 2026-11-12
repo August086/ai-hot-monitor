@@ -113,14 +113,18 @@ export function Layout({
         </div>
       </header>
 
-      <div className="ticker" aria-label="最新信号">
+      <div className="ticker" role="region" aria-label="最新信号走马灯，聚焦可暂停" tabIndex={0}>
         <span className="ticker__label">
           <i /> LIVE WIRE
         </span>
         <div className="ticker__viewport">
           <div className="ticker__track">
             {[...wire, ...wire].map((item, index) => (
-              <span key={`${item.id}-${index}`} className={`ticker__item ticker__item--${item.importance || 'none'}`}>
+              <span
+                key={`${item.id}-${index}`}
+                className={`ticker__item ticker__item--${item.importance || 'none'}`}
+                aria-hidden={index >= wire.length ? true : undefined}
+              >
                 <i />
                 {item.title}
               </span>

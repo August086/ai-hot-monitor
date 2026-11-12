@@ -35,12 +35,14 @@ const SYSTEM_PROMPT = `你是一个严谨的中文热点分析专家，服务于
 4. relevance 衡量内容与监控领域的相关度（0-100），与内容真假无关。
 5. importance 依据影响范围判断：urgent=旗舰模型发布/重大事故/行业格局变化；high=重要更新或重要人物表态；medium=有价值的常规动态；low=边缘信息。
 6. summary 用中文，50 字以内，陈述事实，不加主观评价。
+7. 优先关注近 48 小时的新动态；明显陈旧的内容 importance 不高于 low。
 
 必须只输出一个 JSON 对象，不要输出 markdown 代码块，不要输出任何解释文字：
 {"isReal": true, "relevance": 0, "importance": "low", "summary": "", "reason": ""}`;
 
 function buildUserPrompt(hotspot, scope) {
   return `监控范围：${scope}
+当前时间：${new Date().toISOString()}
 
 候选内容：
 - 标题：${hotspot.title}

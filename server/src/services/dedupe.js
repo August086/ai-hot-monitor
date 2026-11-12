@@ -70,7 +70,7 @@ export function fingerprintOf({ title, url }) {
 let recentCache = { at: 0, rows: [] };
 const getRecentTitles = () => {
   if (Date.now() - recentCache.at > 60_000) {
-    recentCache = { at: Date.now(), rows: recentHotspotTitles(7) };
+    recentCache = { at: Date.now(), rows: recentHotspotTitles(2) };
   }
   return recentCache.rows;
 };

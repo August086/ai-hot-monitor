@@ -40,6 +40,22 @@ export const config = {
     maxKeywordsPerRun: num(process.env.MAX_KEYWORDS_PER_RUN, 10, 1, 100),
   },
 
+  sources: {
+    hackernews: bool(process.env.ENABLE_HN, true),
+    arxiv: bool(process.env.ENABLE_ARXIV, true),
+    gdelt: bool(process.env.ENABLE_GDELT, true),
+    huggingface: bool(process.env.ENABLE_HF, false),
+  },
+
+  freshness: {
+    bing: num(process.env.FRESHNESS_HOURS, 48, 1, 720),
+    hackernews: num(process.env.FRESHNESS_HOURS, 48, 1, 720),
+    gdelt: num(process.env.FRESHNESS_HOURS, 48, 1, 720),
+    arxiv: num(process.env.ARXIV_FRESHNESS_HOURS, 168, 1, 2160),
+    huggingface: num(process.env.HF_FRESHNESS_HOURS, 336, 1, 4320),
+    twitter: num(process.env.FRESHNESS_HOURS, 48, 1, 720),
+  },
+
   ai: {
     apiKey: process.env.OPENROUTER_API_KEY?.trim() || '',
     baseUrl: (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, ''),

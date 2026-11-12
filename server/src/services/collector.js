@@ -15,6 +15,10 @@ import { dedupe, invalidateRecentCache } from './dedupe.js';
 import { dispatchHotspot } from './notifier.js';
 import { searchBing } from './sources/bing.js';
 import { searchTwitter } from './sources/twitter.js';
+import { searchHackerNews } from './sources/hackernews.js';
+import { searchArxiv } from './sources/arxiv.js';
+import { searchGdelt } from './sources/gdelt.js';
+import { searchHuggingFace } from './sources/huggingface.js';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -26,21 +30,46 @@ async function collectForKeyword(keyword) {
   const found = [];
   const errors = [];
 
+  const merge = (result, source) => {
+    if (result.skipped && result.skipped !== '已关闭') {
+      errors.push({ source, message: result.skipped });
+    }
+    for (const item of result.items || []) found.push({ ...item, source });
+  };
+
   try {
-    const results = await searchBing(keyword);
-    for (const item of results) found.push({ ...item, source: 'bing' });
+    merge({ items: await searchBing(keyword) }, 'bing');
   } catch (error) {
     errors.push({ source: 'bing', message: error.message });
   }
 
+  // 三个免费实时源可并行
+  const [hn, arxiv, hf] = await Promise.all([
+    searchHackerNews(keyword),
+    searchArxiv(keyword),
+    searchHuggingFace(keyword),
+  ]);
+  merge(hn, 'hackernews');
+  merge(arxiv, 'arxiv');
+  merge(hf, 'huggingface');
+
+  // GDELT 有频率限制，内部已串行节流
+  merge(await searchGdelt(keyword), 'gdelt');
+
   if (config.twitter.apiKey) {
-    const twitter = await searchTwitter(keyword);
-    if (twitter.skipped) errors.push({ source: 'twitter', message: twitter.skipped });
-    for (const item of twitter.items) found.push({ ...item, source: 'twitter' });
+    merge(await searchTwitter(keyword), 'twitter');
   }
 
   return { found, errors };
 }
+
+const isFresh = (item) => {
+  if (!item.publishedAt) return true;
+  const published = Date.parse(item.publishedAt);
+  if (Number.isNaN(published)) return true;
+  const limitHours = config.freshness[item.source] ?? 48;
+  return Date.now() - published <= limitHours * 3600_000;
+};
 
 function publishStats() {
   broadcast('stats:update', stats());
@@ -63,7 +92,16 @@ export async function runCollection({ trigger = 'scheduled', keywordIds = null }
   const runId = startRun(trigger);
   broadcast('run:update', { id: runId, status: 'running', trigger, keywords: keywords.length });
 
-  const summary = { runId, keywords: keywords.length, found: 0, created: 0, analyzed: 0, errors: [], newItems: [] };
+  const summary = {
+    runId,
+    keywords: keywords.length,
+    found: 0,
+    stale: 0,
+    created: 0,
+    analyzed: 0,
+    errors: [],
+    newItems: [],
+  };
 
   try {
     const fresh = [];
@@ -74,6 +112,10 @@ export async function runCollection({ trigger = 'scheduled', keywordIds = null }
       summary.errors.push(...errors.map((error) => ({ keyword: keyword.term, ...error })));
 
       for (const item of found) {
+        if (!isFresh(item)) {
+          summary.stale += 1;
+          continue;
+        }
         const result = dedupe({ title: item.title, url: item.url });
         if (result.duplicate) continue;
         const inserted = insertHotspot({
@@ -173,6 +215,7 @@ export async function searchOnce(term, { domain = '', analyze = true } = {}) {
   const created = [];
 
   for (const item of found) {
+    if (!isFresh(item)) continue;
     const fingerprint = dedupe({ title: item.title, url: item.url });
     if (fingerprint.duplicate) continue;
     const inserted = insertHotspot({

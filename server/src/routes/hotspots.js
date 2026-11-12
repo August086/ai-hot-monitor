@@ -7,8 +7,8 @@ import { broadcast } from '../ws.js';
 const router = Router();
 
 router.get('/', (req, res) => {
-  const { limit, offset, importance, source, isReal, status, keyword, q, days } = req.query;
-  res.json(listHotspots({ limit, offset, importance, source, isReal, status, keyword, q, days }));
+  const { limit, offset, importance, source, isReal, status, keyword, q, days, dated, sort } = req.query;
+  res.json(listHotspots({ limit, offset, importance, source, isReal, status, keyword, q, days, dated, sort }));
 });
 
 router.get('/:id', (req, res) => {

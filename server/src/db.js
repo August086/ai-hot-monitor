@@ -73,6 +73,11 @@ CREATE TABLE IF NOT EXISTS runs (
 
 const now = () => new Date().toISOString();
 
+// 历史数据里 published_at 可能被误写成 URL / 中文日期，置空避免参与时间排序
+db.prepare(
+  "UPDATE hotspots SET published_at = NULL WHERE published_at IS NOT NULL AND published_at NOT LIKE '____-__-__%'",
+).run();
+
 const DEFAULT_SETTINGS = {
   notifyBrowser: 'true',
   notifyEmail: 'false',
@@ -230,6 +235,8 @@ export const listHotspots = ({
   keyword,
   q,
   days,
+  dated,
+  sort = 'latest',
 } = {}) => {
   const where = [];
   const params = [];
@@ -258,15 +265,25 @@ export const listHotspots = ({
     params.push(`%${q}%`, `%${q}%`, `%${q}%`);
   }
   if (days) {
-    where.push('created_at >= ?');
+    where.push("COALESCE(NULLIF(published_at, ''), created_at) >= ?");
     params.push(new Date(Date.now() - Number(days) * 86400_000).toISOString());
   }
+  if (dated === true || dated === 'true') {
+    where.push("published_at IS NOT NULL AND published_at != ''");
+  }
   const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const effectiveTime = "COALESCE(NULLIF(published_at, ''), created_at)";
+  const undatedLast = "CASE WHEN NULLIF(published_at, '') IS NULL THEN 1 ELSE 0 END";
+  const importanceOrder =
+    "CASE importance WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END";
+  const orderBy =
+    sort === 'importance'
+      ? `${importanceOrder}, ${undatedLast}, ${effectiveTime} DESC`
+      : `${undatedLast}, ${effectiveTime} DESC, ${importanceOrder}`;
   const rows = db
     .prepare(
       `SELECT * FROM hotspots ${clause}
-       ORDER BY CASE importance WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,
-                created_at DESC
+       ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,
     )
     .all(...params, Math.min(Number(limit) || 50, 200), Number(offset) || 0);
@@ -302,11 +319,17 @@ export const markNotified = (id) =>
   db.prepare('UPDATE hotspots SET notified = 1 WHERE id = ?').run(Number(id));
 
 export const stats = () => {
+  const effective = "COALESCE(NULLIF(published_at, ''), created_at)";
   const total = db.prepare('SELECT COUNT(*) AS c FROM hotspots').get().c;
   const today = new Date(Date.now() - 86400_000).toISOString();
-  const todayCount = db.prepare('SELECT COUNT(*) AS c FROM hotspots WHERE created_at >= ?').get(today).c;
+  const todayCount = db
+    .prepare(`SELECT COUNT(*) AS c FROM hotspots WHERE ${effective} >= ?`)
+    .get(today).c;
   const realCount = db.prepare('SELECT COUNT(*) AS c FROM hotspots WHERE is_real = 1').get().c;
   const fakeCount = db.prepare('SELECT COUNT(*) AS c FROM hotspots WHERE is_real = 0').get().c;
+  const fresh = db
+    .prepare("SELECT COUNT(*) AS c FROM hotspots WHERE NULLIF(published_at, '') IS NOT NULL AND published_at >= ?")
+    .get(new Date(Date.now() - 48 * 3600_000).toISOString()).c;
   const urgent = db
     .prepare("SELECT COUNT(*) AS c FROM hotspots WHERE importance IN ('urgent','high')")
     .get().c;
@@ -321,8 +344,8 @@ export const stats = () => {
     .map((r) => ({ key: r.k, count: r.c }));
   const timeline = db
     .prepare(
-      `SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS c
-       FROM hotspots WHERE created_at >= ? GROUP BY day ORDER BY day ASC`,
+      `SELECT substr(${effective}, 1, 10) AS day, COUNT(*) AS c
+       FROM hotspots WHERE ${effective} >= ? GROUP BY day ORDER BY day ASC`,
     )
     .all(new Date(Date.now() - 7 * 86400_000).toISOString())
     .map((r) => ({ day: r.day, count: r.c }));
@@ -332,6 +355,7 @@ export const stats = () => {
   return {
     total,
     today: todayCount,
+    fresh,
     real: realCount,
     fake: fakeCount,
     urgent,

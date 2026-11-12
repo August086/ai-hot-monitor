@@ -1,5 +1,5 @@
 export type Importance = 'low' | 'medium' | 'high' | 'urgent';
-export type SourceKind = 'bing' | 'twitter' | 'seed';
+export type SourceKind = 'bing' | 'twitter' | 'seed' | 'hackernews' | 'arxiv' | 'huggingface' | 'gdelt';
 
 export interface Keyword {
   id: number;
@@ -36,6 +36,7 @@ export interface Hotspot {
 export interface Stats {
   total: number;
   today: number;
+  fresh: number;
   real: number;
   fake: number;
   urgent: number;
@@ -111,4 +112,8 @@ export const SOURCE_LABEL: Record<string, string> = {
   bing: 'WEB',
   twitter: 'X',
   seed: 'DEMO',
+  hackernews: 'HN',
+  arxiv: 'ARXIV',
+  huggingface: 'HF',
+  gdelt: 'GDELT',
 };
