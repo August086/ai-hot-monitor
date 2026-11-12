@@ -10,7 +10,7 @@
 - **AI 研判**：OpenRouter 结构化输出，判断真假、相关性、重要度并生成摘要
 - **去重**：URL 指纹 + 中文标题相似度双保险
 - **实时通知**：WebSocket 浏览器推送 + SMTP 邮件，按等级阈值过滤
-- **控制台**：赛博朋克风格仪表盘、热点流、关键词、设置四页，响应式
+- **控制台**：SIGNAL DESK 编辑部风格仪表盘、热点流、关键词、设置四页，响应式且符合可访问性基线
 - **Agent Skill**：可被其他 AI 调用的 `.trae/skills/neon-watch`
 
 ## 技术栈
@@ -31,9 +31,9 @@
 
 | 文档 | 内容 |
 | --- | --- |
-| [REQUIREMENTS.md](./REQUIREMENTS.md) | 要做什么：功能、非功能、验收标准 |
-| [SOLUTION.md](./SOLUTION.md) | 怎么做：架构、数据模型、接口、AI 与通知设计 |
-| [TECH_SELECTION.md](./TECH_SELECTION.md) | 为什么：16 项技术决策与放弃清单 |
+| [REQUIREMENTS.md](./REQUIREMENTS.md) | 要做什么：功能、非功能（含可访问性）、验收标准与结果 |
+| [SOLUTION.md](./SOLUTION.md) | 怎么做：架构、数据模型、接口、AI/时效/通知/前端设计 |
+| [TECH_SELECTION.md](./TECH_SELECTION.md) | 为什么：19 项技术决策与放弃清单 |
 | [API_INTEGRATION.md](./API_INTEGRATION.md) | 第三方接口的实际对接方式 |
 | [LOCAL_SETUP.md](./LOCAL_SETUP.md) | 本地运行指南 |
 
@@ -44,7 +44,7 @@ server/
   src/
     routes/             REST 路由
     services/           采集 / 去重 / AI / 通知
-    services/sources/   Bing / Twitter
+    services/sources/   Bing / Hacker News / arXiv / GDELT / HuggingFace / Twitter
     db.js  ws.js  scheduler.js  config.js  index.js
   test/smoke.test.js
   scripts/seed.js

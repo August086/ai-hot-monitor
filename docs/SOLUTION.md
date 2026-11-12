@@ -2,8 +2,8 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 文档版本 | v1.0 |
-| 日期 | 2026-11-11 |
+| 文档版本 | v1.4 |
+| 日期 | 2026-11-12 |
 | 状态 | 已实现并通过验收（Twitter 数据源待密钥联调） |
 | 关联需求 | [REQUIREMENTS.md](./REQUIREMENTS.md) |
 | 技术选型 | [TECH_SELECTION.md](./TECH_SELECTION.md) |
@@ -27,13 +27,14 @@
 | --- | --- | --- |
 | 关键词增删改查 | `server/src/routes/keywords.js` | 唯一约束、长度校验、启用开关 |
 | 30 分钟定时抓取 | `server/src/scheduler.js` | 30 秒 tick 检查，间隔可在设置页改 |
-| 多数据源 | `server/src/services/sources/*` | Bing 网页搜索 + twitterapi.io |
+| 多数据源 | `server/src/services/sources/*` | Bing + Hacker News + arXiv + GDELT（HF 可选，X 需密钥） |
+| 时效过滤与排序 | `collector.js`、`db.js listHotspots` | 分源时效窗口；发布时间优先，无时间条目排后 |
 | AI 真假识别 | `server/src/services/ai.js` | json_schema 强约束输出 |
 | 重复过滤 | `server/src/services/dedupe.js` | URL 指纹 + 中文标题相似度 |
 | 浏览器推送 | `server/src/ws.js` | 原生 WebSocket，事件 `hotspot:new` |
 | 邮件通知 | `server/src/services/notifier.js` | nodemailer + HTML 模板 |
 | 通知设置/历史 | `routes/settings.js`、`routes/notifications.js` | 阈值、收件人、通道开关 |
-| 赛博朋克 UI | `web/src/styles.css`、`web/src/components/*` | 零组件库，手写设计系统 |
+| SIGNAL DESK UI | `web/src/styles.css`、`styles-v2.css`、`components/*` | 手写设计系统 + Aceternity 动效组件 |
 | Agent Skill | `.trae/skills/neon-watch/` | SKILL.md + 无依赖 CLI |
 
 ---
@@ -46,6 +47,7 @@
 | Web 框架 | Express 5.1 | 原生支持 async 路由错误传递 |
 | 数据库 | SQLite（WAL） | 单机 7x24、零运维，JSON 字段需求少 |
 | 抓取 | fetch + cheerio | 轻量、可控 UA/限速/重试 |
+| 资讯源 | Bing + HN(Algolia) + arXiv(Atom) + GDELT(DOC 2.0) + HF(可选) | 全部免密钥，覆盖新闻/社区/论文/模型四类信号 |
 | 实时 | ws 8.18 | 原生 WebSocketServer，可直接挂 HTTP server |
 | 邮件 | nodemailer 7 | 支持 QQ/163/Gmail/Outlook SMTP |
 | 调度 | 自研 tick 调度 | 间隔可从数据库热更新，无需重启 cron |
@@ -105,7 +107,7 @@ OPENROUTER_FALLBACK_MODEL=moonshotai/kimi-k3
 
 ```
 ┌───────────────────────────── 浏览器（React SPA） ─────────────────────────────┐
-│  仪表盘 / 热点流 / 关键词 / 设置        Canvas 粒子 + 霓虹设计系统              │
+│  仪表盘 / 热点流 / 关键词 / 设置        SIGNAL DESK 设计系统 + 动效组件        │
 └───────────────▲───────────────────────────────────▲──────────────────────────┘
                 │ REST /api/*                       │ WS /ws
 ┌───────────────┴───────────────────────────────────┴──────────────────────────┐
@@ -115,9 +117,9 @@ OPENROUTER_FALLBACK_MODEL=moonshotai/kimi-k3
 │  scheduler.js：30s tick，按 settings.collectInterval 触发，日切清理              │
 └───────────────┬──────────────────────────────────────────────────────────────┘
                 │
-        ┌───────▼────────┐   抓取    ┌──────────────┐
-        │ collector.js   │──────────▶│ Bing / X API │
-        │ 编排 + 去重     │           └──────────────┘
+        ┌───────▼────────┐   抓取    ┌────────────────────────────────────┐
+        │ collector.js   │──────────▶│ Bing / HN / arXiv / GDELT / X(HF)  │
+        │ 编排 + 时效+去重 │           └────────────────────────────────────┘
         │ AI 研判 + 通知  │──────────▶ OpenRouter（主模型 → 备用 → 启发式）
         └───────┬────────┘──────────▶ SMTP（nodemailer）
                 │
@@ -150,7 +152,11 @@ server/
       ai.js                OpenRouter 研判与降级
       notifier.js          WS + 邮件分发
       sources/bing.js      Bing 搜索解析
-      sources/twitter.js   twitterapi.io
+      sources/hackernews.js Algolia 搜索（48h）
+      sources/arxiv.js     arXiv Atom（7d）
+      sources/gdelt.js     GDELT DOC 2.0（48h，串行限流）
+      sources/huggingface.js 模型上新（14d，默认关闭）
+      sources/twitter.js   twitterapi.io（可选）
   scripts/seed.js          演示数据（手动执行）
   test/smoke.test.js       冒烟测试
 web/
@@ -159,7 +165,8 @@ web/
     pages/                 Dashboard / Hotspots / Keywords / Settings
     components/            Backdrop / Primitives / HotspotCard / Drawer / Layout
     hooks/useLive.ts       WS 重连与事件分发
-    styles.css             设计系统（霓虹 / 切角 / 扫描线 / 响应式）
+    styles.css             设计令牌与基础组件样式
+    styles-v2.css          SIGNAL DESK 布局、响应式与可访问性覆盖层
 .trae/skills/neon-watch/   Agent Skill（SKILL.md + scripts/watch.mjs）
 ```
 
@@ -311,7 +318,7 @@ web/
 ## 12. 调度与任务生命周期
 
 - tick 间隔 30s，读取 `settings.collectInterval`（默认 30 分钟，可调 5–1440）。
-- 一轮采集：加锁 → 读取启用关键词（上限 10）→ Bing/Twitter 抓取 → 去重入库 → AI 研判（上限 12）→ 推送/通知 → 写 `runs` → 广播统计。
+- 一轮采集：加锁 → 读取启用关键词（上限 10）→ 多源抓取 → 时效过滤 + 去重入库 → AI 研判（上限 12）→ 推送/通知 → 写 `runs` → 广播统计。
 - 无新增时用剩余额度补研判 `pending` 积压，避免队列长期堆积。
 - 每日首次 tick 触发历史清理：删除超过保留天数且已通知的热点、旧通知与旧任务记录。
 
@@ -346,7 +353,18 @@ web/
 
 **响应式**：≥1240 桌面双栏 Hero + 三栏 Bento；≤1040 Hero 单栏、指标条 3 列；≤880 顶栏导航收起、底部固定导航；≤560 进一步压缩。支持 `prefers-reduced-motion`。
 
-**性能**：JS 约 461KB（gzip 150KB）、CSS 约 61KB（gzip 13KB）；粒子 Canvas 已移除，Beams 仅首页 Hero 使用；动效均可用系统「减少动态」关闭。
+**可读性与可访问性基线（v1.4）**
+
+| 维度 | 落地方式 |
+| --- | --- |
+| 对比度 | `--dim` 由 `#616b78` 调整为 `#7c8796`，正文最低 5.23:1（面板）/ 5.47:1（页面底），全部 ≥ WCAG AA 4.5:1 |
+| 字号 | 微标签下限 9.5–10.5px，卡片摘要 12.5px，中文标题放宽行高、收紧过度负字距 |
+| 触控 | 移动端主按钮 44px、筛选 chip 38px、图标按钮 40px、搜索框 44px；桌面端保留紧凑尺寸 |
+| 键盘 | 全局 `:focus-visible` 荧光绿描边；走马灯 `role="region"` + `tabIndex`，聚焦即暂停 |
+| 动效 | 走马灯/光斑在 `prefers-reduced-motion` 下切静态；不依赖 hover 传达操作入口（触屏常显） |
+| 数据呈现 | 实时数字使用 `tabular-nums`，刷新不抖动；环图中心文案与真实含义一致（SIGNALS） |
+
+**性能**：JS 461.84KB（gzip 150.19KB）、CSS 63.46KB（gzip 13.70KB）；粒子 Canvas 已移除，Beams 仅首页 Hero 使用；动效均可用系统「减少动态」关闭。
 
 ---
 
@@ -377,6 +395,7 @@ web/
 | API | 健康、统计、热点分页、关键词 CRUD/409、设置校验、通知、密钥不外泄 | 13/13 通过 |
 | 集成 | 真实 Bing 抓取、去重、AI 批量研判、WS 推送、邮件发送 | 通过 |
 | 前端 | 四页渲染、筛选、抽屉、ESC 关闭、移动端布局、无 console 错误 | 通过 |
+| 视觉/可访问性 | 1440 与 390 宽四页截图；无横向溢出；对比度 ≥5.2:1；焦点环、触控尺寸、减弱动效 | 通过 |
 | 邮件 | QQ SMTP 自检 + 热点命中自动发送（浏览器+邮件双通道） | 通过，收件方已确认 |
 | AI | DeepSeek 主模型结构化输出、备用模型配置 | 通过 |
 | Skill | CLI 各命令与真实 API 联调 | 通过 |
@@ -403,3 +422,4 @@ web/
 | 2026-11-11 | v1.1 | 依据 MCP 最新文档将 `X-Title` 改为 `X-OpenRouter-Title`，结构化输出由 `json_object` 升级为 `json_schema + strict`；实测 `require_parameters` 会跳过 DeepSeek 端点故未启用；Bing 增加 `mkt=zh-CN` |
 | 2026-11-12 | v1.2 | 前端改版为 SIGNAL DESK：墨色 + 信号橙/酸性绿、顶部指挥栏与信号走马灯、Hero 聚光灯与光束；引入 Tailwind CSS 4 + Aceternity UI + Motion（Context7 核对官方实现） |
 | 2026-11-12 | v1.3 | 解决“抓取内容陈旧”：接入 HN/arXiv/GDELT/HuggingFace，统一发布时间并做 48h 时效过滤；默认按发布时间排序，新增「仅有发布时间」筛选；去重窗口 7 天→48 小时；Bing 过滤导航型结果 |
+| 2026-11-12 | v1.4 | 可读性与可访问性打磨：对比度基线（--dim 3.67→5.47:1）、微标签字号下限、移动端触控尺寸、键盘焦点环、走马灯可聚焦暂停、触屏常显操作入口；环图中心文案修正为 SIGNALS |
