@@ -1,0 +1,22 @@
+{
+  "name": "ai-hot-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "AI 热点监控中枢：多源抓取 + OpenRouter AI 研判 + 实时推送",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n SERVER,WEB -c cyan,magenta \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "npm --workspace server run dev",
+    "dev:web": "npm --workspace web run dev",
+    "build": "npm --workspace web run build",
+    "start": "npm --workspace server run start",
+    "test": "node server/test/smoke.test.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
