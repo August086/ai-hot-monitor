@@ -2,8 +2,8 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 文档版本 | v1.5 |
-| 日期 | 2026-11-12 |
+| 文档版本 | v1.7 |
+| 日期 | 2026-11-16 |
 | 状态 | 主体已实现并验收；Twitter 源待密钥联调 |
 | 关联文档 | [方案设计](./SOLUTION.md) · [技术选型](./TECH_SELECTION.md) · [接口对接](./API_INTEGRATION.md) |
 
@@ -57,6 +57,10 @@
 | 范围限定 | 为关键词附加领域（如“大模型/开发者生态”），拼入检索语句 | P0 |
 | 单关键词即时扫描 | 不等待定时任务，立即抓取一轮 | P1 |
 | 关键词状态可见 | 最近检查时间、启用状态 | P2 |
+| 关键词产出统计 | 每个词的总量、近 24h/48h/7d 条数、平均相关度、待研判数；7 天 0 产出标记「低产」 | P0 |
+| 关键词 → 信号流 | 词名与「信号 N」按钮一键跳转热点流，自动重置为「该词 + 近 48h + 综合推荐」 | P0 |
+| 行内预览 | 表格内展开该词近 48h 的 5 条信号，可直接打开详情抽屉 | P1 |
+| 产出排行 | 表格下方按近 7 天条数排序的条形榜，点击进入对应词信号流 | P1 |
 
 ### 4.2 多源采集与时效
 
@@ -87,6 +91,7 @@
 | 结构化输出 | JSON Schema 严格约束，解析失败自动降级 | P0 |
 | 多模型降级 | 主模型 → 备用模型 → 启发式，降级必须显式标注 | P0 |
 | 积压补研判 | 每轮剩余额度自动补 `pending` 历史条目 | P2 |
+| 离线评测 | 20 条人工标注样本 + `npm run eval:ai`，输出相关度分档命中率、MAE、重要度混淆矩阵、真伪 F1、Schema 成功率与稳定性；阈值不达标退出码 1 | P1 |
 
 ### 4.4 通知
 
@@ -111,6 +116,7 @@
 | 搜索入口 | 热点流页内搜索框（防抖 400ms）+ 顶栏全局搜索（回车跳转热点流）；移动端走页内搜索框 | P0 |
 | 搜索结果增强 | 命中词信号橙高亮、命中数实时显示、最近 10 条搜索历史（本机保存、可清空） | P1 |
 | 命中位置区分 | 按「标题 > AI 摘要 > 原文 > 链接来源」分级，搜索时标题/摘要命中优先排序，卡片标注命中位置 | P0 |
+| 监控词语境条 | 热点流检测到关键词筛选时，展示该词 24h/48h/7d 条数、平均相关度、待研判，并提供「重新扫描该词」 | P1 |
 | 详情抽屉 | 相关性、判定依据、摘要、原文跳转、重新研判 | P1 |
 | 响应式 | 375 / 768 / 1024 / 1440 四档均可用，无横向滚动 | P0 |
 | 可访问性 | 见 5.3 | P0 |
@@ -244,11 +250,11 @@ OPENROUTER_FALLBACK_MODEL=moonshotai/kimi-k3
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/api/keywords` | 关键词列表 |
+| GET | `/api/keywords` | 关键词列表（含 `stats`：total / last24h / last48h / last7d / pending / avgRelevance / latestAt） |
 | POST | `/api/keywords` | 新增，重复 409 |
 | PUT | `/api/keywords/:id` | 改名/范围/启停 |
 | DELETE | `/api/keywords/:id` | 删除，历史热点保留 |
-| GET | `/api/hotspots` | `limit/offset/importance/source/isReal/status/keyword/q/qMode/days/hours/from/to/dated/notified/relevanceMin/engagementMin/sort`；`q` 支持多词 AND / `-排除` / `"短语"` 语法 |
+| GET | `/api/hotspots` | `limit/offset/importance/source/isReal/status/keyword/q/qMode/days/hours/from/to/dated/notified/relevanceMin/engagementMin/sort`；`keyword` 为监控词精确关联，`q` 支持多词 AND / `-排除` / `"短语"` 语法 |
 | GET | `/api/hotspots/:id` | 详情 |
 | POST | `/api/hotspots/search` | 即时抓取 `{term, domain?, analyze?}` |
 | POST | `/api/hotspots/:id/analyze` | 单条重新研判 |
@@ -311,3 +317,4 @@ OPENROUTER_FALLBACK_MODEL=moonshotai/kimi-k3
 | 2026-11-12 | v1.4 | 检索能力升级：等级/来源/可信度改为多选，新增相关度与热度门槛、时间窗口与自定义区间、7 种排序（含综合推荐分）、预设与自定义筛选视图、URL 状态同步 |
 | 2026-11-16 | v1.5 | 搜索能力升级：多词/排除/短语查询语法、6 字段检索范围、命中高亮、搜索历史、顶栏全局搜索入口 |
 | 2026-11-16 | v1.6 | 搜索命中位置分级：标题 > AI 摘要 > 原文 > 链接来源，搜索时按位置优先排序并标注在卡片上 |
+| 2026-11-16 | v1.7 | 监控词产出链路：关键词页产出统计/行内预览/产出榜、跳转信号流自动带词 + 48h、热点流监控词语境条；`keyword` 筛选改为精确关联；新增 AI 研判离线评测 |

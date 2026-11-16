@@ -1,0 +1,327 @@
+{
+  "version": 1,
+  "description": "AI 研判离线评测样本。relevance 用分档（relevanceBand）而不是精确分数，因为相关性本质是主观区间判断；所有样本均人工标注，改动样本需同步更新 why。",
+  "scope": "AI 编程、大模型、AI 编程工具与开发者生态",
+  "cases": [
+    {
+      "id": "official-flagship-release",
+      "note": "官网发布旗舰模型，来源可核实",
+      "keyword": "DeepSeek",
+      "ageHours": 3,
+      "hotspot": {
+        "title": "DeepSeek 发布 V4.1 Flash：推理成本下降 60%",
+        "url": "https://api-docs.deepseek.com/news/v4-1-flash",
+        "source": "hackernews",
+        "author": "deepseek",
+        "snippet": "DeepSeek 官方博客宣布 V4.1 Flash 上线，单位推理成本较上一代下降 60%，上下文窗口扩展至 256K，已在 API 全量可用。",
+        "engagement": 420
+      },
+      "expect": { "isReal": true, "relevanceBand": [85, 100], "importance": "urgent" },
+      "why": "官方一手发布 + 明确版本与能力变化，属于旗舰模型发布级别"
+    },
+    {
+      "id": "official-coding-tool-update",
+      "note": "编程工具官方更新",
+      "keyword": "Claude Code",
+      "ageHours": 10,
+      "hotspot": {
+        "title": "Claude Code 新增多仓库上下文与并行任务",
+        "url": "https://www.anthropic.com/news/claude-code-multi-repo",
+        "source": "hackernews",
+        "author": "anthropic",
+        "snippet": "Anthropic 为 Claude Code 推出多仓库索引与并行子任务能力，支持在同一会话内跨仓库重构，并新增 IDE 内联评审。",
+        "engagement": 260
+      },
+      "expect": { "isReal": true, "relevanceBand": [85, 100], "importance": "high" },
+      "why": "官方更新且直接作用于 AI 编程工作流"
+    },
+    {
+      "id": "pricing-change",
+      "note": "官方定价调整，对开发者影响大",
+      "keyword": "OpenAI",
+      "ageHours": 20,
+      "hotspot": {
+        "title": "OpenAI 调整 API 定价：批量接口再降 35%",
+        "url": "https://openai.com/api/pricing-update",
+        "source": "baidu",
+        "author": "36氪",
+        "snippet": "OpenAI 宣布 Batch API 价格下调 35%，同时提高速率上限，适用于 GPT 系列与嵌入模型。",
+        "engagement": 0
+      },
+      "expect": { "isReal": true, "relevanceBand": [80, 100], "importance": "high" },
+      "why": "官方定价变化，直接影响开发者成本"
+    },
+    {
+      "id": "funding-round",
+      "note": "权威财经媒体报道融资",
+      "keyword": "AI 编程",
+      "ageHours": 26,
+      "hotspot": {
+        "title": "AI 编程创业公司 Cursor 完成新一轮 4 亿美元融资",
+        "url": "https://36kr.com/p/1234567890",
+        "source": "baidu",
+        "author": "36氪",
+        "snippet": "36氪获悉，AI 编程工具 Cursor 完成 4 亿美元 D 轮融资，估值翻倍，资金将用于模型自研与企业级功能。",
+        "engagement": 0
+      },
+      "expect": { "isReal": true, "relevanceBand": [75, 100], "importance": "high" },
+      "why": "权威媒体报道 + 明确的行业资本动向"
+    },
+    {
+      "id": "outage-incident",
+      "note": "重大线上事故",
+      "keyword": "Claude",
+      "ageHours": 5,
+      "hotspot": {
+        "title": "Claude API 大规模不可用两小时，官方确认为配置变更引发",
+        "url": "https://status.anthropic.com/incidents/abc123",
+        "source": "hackernews",
+        "author": "anthropic",
+        "snippet": "状态页显示 Claude API 与网页端在全球范围不可用约两小时，官方说明为一次网关配置变更导致，已回滚并补发公告。",
+        "engagement": 530
+      },
+      "expect": { "isReal": true, "relevanceBand": [80, 100], "importance": "urgent" },
+      "why": "官方状态页确认的重大事故，影响开发者生产"
+    },
+    {
+      "id": "show-hn-project",
+      "note": "Show HN 小项目，相关但不重大",
+      "keyword": "AI 编程",
+      "ageHours": 14,
+      "hotspot": {
+        "title": "Show HN: 我用 AI 写了一个终端里的 Git 提交助手",
+        "url": "https://news.ycombinator.com/item?id=40000001",
+        "source": "hackernews",
+        "author": "indiedev",
+        "snippet": "一个开源的 CLI 工具，用本地小模型生成 commit message 并支持规则校验，作者分享了提示词与失败案例。",
+        "engagement": 42
+      },
+      "expect": { "isReal": true, "relevanceBand": [60, 85], "importance": "medium" },
+      "why": "开发者作品，切题但影响范围有限"
+    },
+    {
+      "id": "hn-gpu-price-discussion",
+      "note": "社区讨论，间接相关",
+      "keyword": "大模型",
+      "ageHours": 30,
+      "hotspot": {
+        "title": "H100 租赁价格三个月内下跌 40%，社区讨论对训练成本的影响",
+        "url": "https://news.ycombinator.com/item?id=40000002",
+        "source": "hackernews",
+        "author": "ml_infra",
+        "snippet": "帖子汇总多家云厂商的 GPU 租赁报价，讨论训练成本下降是否会改变模型团队的算力决策。",
+        "engagement": 180
+      },
+      "expect": { "isReal": true, "relevanceBand": [50, 80], "importance": "medium" },
+      "why": "与大模型生态相关，但属于间接话题"
+    },
+    {
+      "id": "benchmark-post",
+      "note": "第三方评测榜单",
+      "keyword": "大模型",
+      "ageHours": 18,
+      "hotspot": {
+        "title": "最新编码基准榜单：三款国产模型在 SWE-bench 上进入前十",
+        "url": "https://arxiv.org/abs/2611.01234",
+        "source": "arxiv",
+        "author": "Benchmark Team",
+        "snippet": "论文给出新一轮编码基准评测结果，三家国产模型在 SWE-bench Verified 上进入前十，并分析了失败样本的分布。",
+        "engagement": 0
+      },
+      "expect": { "isReal": true, "relevanceBand": [60, 95], "importance": "medium" },
+      "why": "可核实的评测结论，与 AI 编程直接相关"
+    },
+    {
+      "id": "tangential-paper",
+      "note": "学术论文但主题偏离",
+      "keyword": "模型",
+      "ageHours": 40,
+      "hotspot": {
+        "title": "Constant query LCCs over the reals",
+        "url": "https://arxiv.org/abs/2611.05555",
+        "source": "arxiv",
+        "author": "Some Authors",
+        "snippet": "We study locally correctable codes over the reals and give a constant-query construction with improved soundness.",
+        "engagement": 0
+      },
+      "expect": { "isReal": true, "relevanceBand": [0, 25], "importance": "low" },
+      "why": "真实论文，但主题是编码理论，与 AI 编程无关"
+    },
+    {
+      "id": "unrelated-consumer-news",
+      "note": "消费电子新闻，仅词面命中",
+      "keyword": "AI",
+      "ageHours": 8,
+      "hotspot": {
+        "title": "苹果发布新款 AirPods，新增实时翻译功能",
+        "url": "https://www.ithome.com/0/000/000.htm",
+        "source": "ithome",
+        "author": "IT之家",
+        "snippet": "新款 AirPods 支持端侧实时翻译，官方称由自研芯片驱动，售价与上一代持平。",
+        "engagement": 0
+      },
+      "expect": { "isReal": true, "relevanceBand": [10, 40], "importance": "low" },
+      "why": "真实新闻，但属消费电子，与 AI 编程关系弱"
+    },
+    {
+      "id": "clickbait-rumor",
+      "note": "标题党 + 无来源",
+      "keyword": "DeepSeek",
+      "ageHours": 6,
+      "hotspot": {
+        "title": "震惊！DeepSeek 内部消息：下代模型将彻底改写行业格局",
+        "url": "https://example-blog.com/archives/9999",
+        "source": "baidu",
+        "author": "某自媒体",
+        "snippet": "据内部人士透露，这是一次前所未有的突破，业内人士纷纷表示震撼，具体细节暂不便公开。",
+        "engagement": 0
+      },
+      "expect": { "isReal": false, "relevanceBand": [60, 95], "importance": "low" },
+      "why": "标题党 + 内部消息 + 无具体事实，应判存疑；但 relevance 只衡量领域相关度、与真假无关，故分档偏高"
+    },
+    {
+      "id": "anonymous-acquisition-rumor",
+      "note": "匿名爆料收购传闻",
+      "keyword": "AI 编程",
+      "ageHours": 4,
+      "hotspot": {
+        "title": "传某大厂将以 30 亿美元收购知名 AI 编程工具团队",
+        "url": "https://tieba.example.com/p/123456",
+        "source": "baidu",
+        "author": "贴吧用户",
+        "snippet": "网传双方已进入最后谈判阶段，据称交易金额达 30 亿美元，当事双方暂未回应。",
+        "engagement": 0
+      },
+      "expect": { "isReal": false, "relevanceBand": [60, 95], "importance": "medium" },
+      "why": "题材切题但来源不可核实，按网传处理；真假与相关度分开打分"
+    },
+    {
+      "id": "old-news-repost",
+      "note": "旧闻翻炒",
+      "keyword": "GPT",
+      "ageHours": 20,
+      "hotspot": {
+        "title": "回顾：GPT-4 发布时的那些关键细节",
+        "url": "https://example-news.com/review/gpt4",
+        "source": "baidu",
+        "author": "科技档案",
+        "snippet": "本文回顾 2023 年 GPT-4 发布时的技术细节与当时的行业反应，整理了一份时间线。",
+        "engagement": 0
+      },
+      "expect": { "isReal": true, "relevanceBand": [20, 55], "importance": "low" },
+      "why": "内容真实但属旧闻回顾，时效价值低"
+    },
+    {
+      "id": "tutorial-blog",
+      "note": "技术教程，常青内容",
+      "keyword": "AI 编程",
+      "ageHours": 12,
+      "hotspot": {
+        "title": "用 Claude Code 搭建一个会自我审查的 PR 机器人",
+        "url": "https://dev.to/someone/claude-code-pr-bot",
+        "source": "hackernews",
+        "author": "someone",
+        "snippet": "作者分享了把 Claude Code 接入 CI 的完整流程，包括提示词模板、失败重试与人工复核阈值。",
+        "engagement": 26
+      },
+      "expect": { "isReal": true, "relevanceBand": [55, 85], "importance": "low" },
+      "why": "实践教程，切题但缺少新闻性"
+    },
+    {
+      "id": "regulation-news",
+      "note": "监管政策",
+      "keyword": "大模型",
+      "ageHours": 16,
+      "hotspot": {
+        "title": "网信办就生成式 AI 服务管理办法公开征求意见",
+        "url": "https://www.cac.gov.cn/2026-11/01/c_0000000.htm",
+        "source": "baidu",
+        "author": "新华网",
+        "snippet": "征求意见稿对生成式 AI 服务的训练数据来源、内容标识与备案流程提出新要求，意见反馈期一个月。",
+        "engagement": 0
+      },
+      "expect": { "isReal": true, "relevanceBand": [70, 95], "importance": "high" },
+      "why": "官方渠道发布，直接影响国内大模型产品合规"
+    },
+    {
+      "id": "marketing-spam",
+      "note": "营销稿",
+      "keyword": "AI",
+      "ageHours": 2,
+      "hotspot": {
+        "title": "必看！这套 AI 工具让你的效率提升 1000 倍",
+        "url": "https://promo.example.com/ai-tools",
+        "source": "baidu",
+        "author": "某推广号",
+        "snippet": "限时优惠，点击领取 100 个 AI 工具合集，附赠提示词模板，名额有限先到先得。",
+        "engagement": 0
+      },
+      "expect": { "isReal": false, "relevanceBand": [0, 30], "importance": "low" },
+      "why": "纯引流营销，无信息价值"
+    },
+    {
+      "id": "job-posting",
+      "note": "招聘信息",
+      "keyword": "AI 编程",
+      "ageHours": 9,
+      "hotspot": {
+        "title": "某大厂招聘 AI 编程方向算法工程师，要求熟悉代码大模型",
+        "url": "https://jobs.example.com/p/1001",
+        "source": "baidu",
+        "author": "招聘平台",
+        "snippet": "岗位负责代码补全与仓库级理解模型，要求熟悉代码大模型训练与评测，工作地点北京。",
+        "engagement": 0
+      },
+      "expect": { "isReal": true, "relevanceBand": [25, 65], "importance": "low" },
+      "why": "真实招聘信息，主题沾边但不构成热点"
+    },
+    {
+      "id": "repost-same-event",
+      "note": "同一事件转载，标题高度相似",
+      "keyword": "DeepSeek",
+      "ageHours": 7,
+      "hotspot": {
+        "title": "DeepSeek V4.1 Flash 上线：推理成本下降六成",
+        "url": "https://www.qbitai.com/2026/11/0001.html",
+        "source": "qbitai",
+        "author": "量子位",
+        "snippet": "量子位报道称 DeepSeek 新版本在推理成本与上下文长度上均有提升，并给出与上一代的价格对比。",
+        "engagement": 0
+      },
+      "expect": { "isReal": true, "relevanceBand": [70, 95], "importance": "medium" },
+      "why": "权威垂直媒体报道，但属既有事件的二次报道"
+    },
+    {
+      "id": "tool-comparison",
+      "note": "横向评测文章",
+      "keyword": "Claude Code",
+      "ageHours": 22,
+      "hotspot": {
+        "title": "实测三款 AI 编程 Agent：谁更擅长长仓库重构",
+        "url": "https://www.infoq.cn/article/abc",
+        "source": "infoq",
+        "author": "InfoQ",
+        "snippet": "InfoQ 用同一套重构任务对比三款 Agent，记录了成功率、人工干预次数与耗时。",
+        "engagement": 0
+      },
+      "expect": { "isReal": true, "relevanceBand": [65, 90], "importance": "medium" },
+      "why": "有方法论的实测内容，对选题有参考价值"
+    },
+    {
+      "id": "official-docs-page",
+      "note": "官方文档页，无发布时间",
+      "keyword": "API",
+      "ageHours": null,
+      "hotspot": {
+        "title": "Chat Completions | API Reference",
+        "url": "https://platform.example-vendor.com/docs/api/chat",
+        "source": "baidu",
+        "author": "Vendor Docs",
+        "snippet": "Learn how to use the Chat Completions endpoint, including request parameters, streaming and tool calls.",
+        "engagement": 0
+      },
+      "expect": { "isReal": true, "relevanceBand": [30, 60], "importance": "low" },
+      "why": "官方文档常青页，真实但非新闻"
+    }
+  ]
+}

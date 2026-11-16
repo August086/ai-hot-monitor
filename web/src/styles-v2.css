@@ -2031,3 +2031,320 @@ mark.hl {
   }
 }
 
+/* ===== 关键词页：产出统计 + 行内预览 + 产出榜 ===== */
+.kw-table__head,
+.kw-row {
+  /* 操作列 184px：信号按钮 36 + 三个图标按钮 120 + 间距 12，留 16px 余量避免换行 */
+  grid-template-columns: 56px 1fr 176px 76px 108px 184px;
+}
+
+.kw-row.is-expanded {
+  background: rgba(198, 255, 61, 0.04);
+  border-bottom-color: transparent;
+}
+
+.kw-row__term b {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 关键词名做成可点入口 */
+.kw-link {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+}
+.kw-link:hover,
+.kw-link:focus-visible {
+  color: var(--lime);
+  border-bottom-color: rgba(198, 255, 61, 0.5);
+}
+
+.kw-badge {
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  font-weight: 400;
+}
+.kw-badge--idle {
+  color: var(--magenta);
+  border-color: rgba(255, 176, 32, 0.45);
+}
+.kw-badge--new {
+  color: var(--cyan);
+  border-color: rgba(255, 92, 26, 0.4);
+}
+
+.kw-row__stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.kw-row__stats span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+}
+.kw-row__stats i {
+  font-style: normal;
+  font-size: 9px;
+  letter-spacing: 0.6px;
+  color: var(--dim);
+}
+.kw-row__stats .is-warn {
+  color: var(--magenta);
+}
+.kw-row__stats .is-warn i {
+  color: var(--magenta);
+}
+
+.kw-feed-btn {
+  white-space: nowrap;
+}
+.kw-feed-btn.is-active {
+  color: var(--lime);
+  border-color: rgba(198, 255, 61, 0.5);
+}
+
+/* 行内预览 */
+.kw-preview {
+  padding: 4px 18px 16px;
+  border-bottom: 1px solid var(--line-soft);
+  background: rgba(198, 255, 61, 0.025);
+}
+.kw-preview__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 0 10px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--dim);
+}
+.kw-preview__actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.kw-preview .hcard-wrap {
+  margin-bottom: 10px;
+}
+.kw-preview__empty {
+  margin: 6px 0 2px;
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+/* 产出榜 */
+.kw-rank {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.kw-rank__hint {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--dim);
+}
+.kw-rank__row {
+  display: grid;
+  grid-template-columns: minmax(96px, 180px) 1fr 44px minmax(96px, 140px);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  background: none;
+  text-align: left;
+  color: var(--text);
+  font-size: 12px;
+}
+.kw-rank__row:hover,
+.kw-rank__row:focus-visible {
+  border-color: var(--line);
+  background: rgba(255, 92, 26, 0.05);
+}
+.kw-rank__term {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kw-rank__bar {
+  display: block;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.kw-rank__bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 92, 26, 0.85), var(--lime));
+}
+.kw-rank__count {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--lime);
+  font-size: 12px;
+}
+.kw-rank__meta {
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ===== 热点流：监控词语境条 ===== */
+.kw-context {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border: 1px solid rgba(198, 255, 61, 0.22);
+  border-left: 3px solid var(--lime);
+  background: rgba(198, 255, 61, 0.04);
+}
+.kw-context__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.kw-context__label {
+  font-size: 9px;
+  letter-spacing: 1.6px;
+  color: var(--dim);
+}
+.kw-context__head b {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  color: #eaf3ff;
+}
+.kw-context__head em {
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  color: var(--dim);
+}
+.kw-context__stats {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.kw-context__stats span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.kw-context__stats i {
+  font-style: normal;
+  font-size: 9px;
+  letter-spacing: 0.6px;
+  color: var(--dim);
+}
+.kw-context__stats .is-warn {
+  color: var(--magenta);
+}
+.kw-context__stats .is-warn i {
+  color: var(--magenta);
+}
+.kw-context__actions {
+  display: flex;
+  gap: 12px;
+  margin-left: auto;
+}
+
+@media (max-width: 880px) {
+  .kw-table__head {
+    display: none;
+  }
+  .kw-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'term toggle'
+      'stats stats'
+      'time actions';
+    row-gap: 10px;
+    padding: 14px 16px;
+  }
+  .kw-row__id {
+    display: none;
+  }
+  .kw-row__term,
+  .kw-row__edit {
+    grid-area: term;
+  }
+  .kw-row__stats {
+    grid-area: stats;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .kw-row__toggle {
+    grid-area: toggle;
+  }
+  .kw-row__time {
+    grid-area: time;
+  }
+  .kw-row__actions {
+    grid-area: actions;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .kw-preview {
+    padding: 4px 12px 14px;
+  }
+  .kw-rank__row {
+    grid-template-columns: 1fr 44px;
+    grid-template-areas:
+      'term count'
+      'bar bar'
+      'meta meta';
+    row-gap: 6px;
+  }
+  .kw-rank__term {
+    grid-area: term;
+  }
+  .kw-rank__count {
+    grid-area: count;
+  }
+  .kw-rank__bar {
+    grid-area: bar;
+  }
+  .kw-rank__meta {
+    grid-area: meta;
+    text-align: left;
+  }
+  .kw-context {
+    gap: 10px;
+  }
+  .kw-context__actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+

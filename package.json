@@ -14,7 +14,8 @@
     "dev:web": "npm --workspace web run dev",
     "build": "npm --workspace web run build",
     "start": "npm --workspace server run start",
-    "test": "node server/test/sources.test.js && node server/test/smoke.test.js"
+    "test": "node server/test/sources.test.js && node server/test/smoke.test.js",
+    "eval:ai": "node server/scripts/eval-ai.js"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

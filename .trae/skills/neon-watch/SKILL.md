@@ -26,6 +26,7 @@ description: 查询与操作 NEON//WATCH AI 热点监控中枢。当用户询问
 | 多来源合并筛选 | `node scripts/watch.mjs hotspots --source baidu,ithome,qbitai --hours 48` |
 | 待研判积压 | `node scripts/watch.mjs hotspots --status pending,failed --sort pending` |
 | 关键词检索已有热点 | `node scripts/watch.mjs hotspots --q DeepSeek` |
+| 某个监控词的全部信号 | `node scripts/watch.mjs hotspots --keyword "Claude Code" --hours 48` |
 | 查看单条详情 | `node scripts/watch.mjs get 42` |
 | 实时抓取新热点（较慢，10-60s） | `node scripts/watch.mjs search "DeepSeek V4" --domain 大模型` |
 | AI 研判单条 | `node scripts/watch.mjs analyze 42` |

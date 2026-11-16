@@ -23,6 +23,16 @@ export type SourceKind =
   | 'qbitai'
   | 'baidu';
 
+export interface KeywordStats {
+  total: number;
+  last24h: number;
+  last48h: number;
+  last7d: number;
+  pending: number;
+  avgRelevance: number | null;
+  latestAt: string | null;
+}
+
 export interface Keyword {
   id: number;
   term: string;
@@ -30,6 +40,7 @@ export interface Keyword {
   enabled: boolean;
   createdAt: string;
   lastCheckedAt: string | null;
+  stats?: KeywordStats;
 }
 
 export interface Hotspot {

@@ -132,17 +132,20 @@ await check('GET /api/hotspots 搜索：排除词缩小结果集', async () => {
 });
 
 await check('GET /api/hotspots 搜索：短语与切词结果不同', async () => {
-  const probe = await api('/api/hotspots?limit=5');
-  const sample = probe.body.items.find((item) => item.title.length >= 4);
+  const probe = await api('/api/hotspots?limit=50');
+  // 取纯字母片段，避免标点/通配符让断言失真
+  const sample = probe.body.items.find((item) => /[A-Za-z]{8,}/.test(item.title));
   if (!sample) return;
-  const phrase = sample.title.slice(0, 4);
+  const phrase = sample.title.match(/[A-Za-z]{8,}/)[0].slice(0, 6);
   const phraseResult = await api(`/api/hotspots?limit=50&q=${encodeURIComponent(`"${phrase}"`)}`);
   assert.equal(phraseResult.status, 200);
+  assert.ok(phraseResult.body.total >= 1);
   for (const item of phraseResult.body.items) {
     const haystack = [item.title, item.snippet, item.summary, item.url, item.author, item.source]
       .filter(Boolean)
-      .join(' ');
-    assert.ok(haystack.includes(phrase), `短语未命中：${item.title}`);
+      .join(' ')
+      .toLowerCase();
+    assert.ok(haystack.includes(phrase.toLowerCase()), `短语未命中：${item.title}`);
   }
 });
 
@@ -197,6 +200,42 @@ await check('GET /api/hotspots 搜索：显式排序不被命中位置覆盖', a
   const values = body.items.filter((item) => item.relevance !== null).map((item) => item.relevance);
   const sorted = [...values].sort((a, b) => b - a);
   assert.deepEqual(values, sorted, '相关度排序应保持严格降序');
+});
+
+await check('GET /api/keywords 每项带产出统计', async () => {
+  const { status, body } = await api('/api/keywords');
+  assert.equal(status, 200);
+  for (const item of body.items) {
+    assert.ok(item.stats, `缺少 stats：${item.term}`);
+    for (const key of ['total', 'last24h', 'last48h', 'last7d', 'pending', 'avgRelevance', 'latestAt']) {
+      assert.ok(key in item.stats, `stats 缺少字段 ${key}`);
+    }
+    assert.ok(item.stats.total >= item.stats.last7d, '总量应不小于近 7 天');
+    assert.ok(item.stats.last7d >= item.stats.last48h, '7 天应不小于 48 小时');
+    assert.ok(item.stats.last48h >= item.stats.last24h, '48 小时应不小于 24 小时');
+  }
+});
+
+await check('GET /api/hotspots keyword 为精确关联（不按标题模糊带出）', async () => {
+  const keywords = await api('/api/keywords');
+  const target = keywords.body.items.find((item) => item.stats?.total > 0);
+  if (!target) return;
+  const { status, body } = await api(`/api/hotspots?keyword=${encodeURIComponent(target.term)}&limit=50`);
+  assert.equal(status, 200);
+  assert.ok(body.total >= 1);
+  for (const item of body.items) {
+    assert.equal(item.keyword, target.term, `出现了非本词条目：${item.title}`);
+  }
+});
+
+await check('GET /api/keywords 统计与热点列表计数一致', async () => {
+  const keywords = await api('/api/keywords');
+  const target = keywords.body.items.find((item) => item.stats?.last48h > 0);
+  if (!target) return;
+  const list = await api(
+    `/api/hotspots?keyword=${encodeURIComponent(target.term)}&hours=48&dated=true&limit=1`,
+  );
+  assert.equal(list.body.total, target.stats.last48h, 'keywords 统计应与跳转后列表一致');
 });
 
 const term = `测试词-${Date.now()}`;

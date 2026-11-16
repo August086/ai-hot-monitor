@@ -136,7 +136,14 @@ export default function App() {
       case 'hotspots':
         return <Hotspots pulse={pulse} onOpen={setSelected} notify={notify} />;
       case 'keywords':
-        return <Keywords pulse={pulse} onChanged={() => setPulse((value) => value + 1)} notify={notify} />;
+        return (
+          <Keywords
+            pulse={pulse}
+            onChanged={() => setPulse((value) => value + 1)}
+            onOpen={setSelected}
+            notify={notify}
+          />
+        );
       case 'settings':
         return <Settings notify={notify} onChanged={() => setPulse((value) => value + 1)} />;
       default:

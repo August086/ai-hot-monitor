@@ -28,6 +28,8 @@ export function Hotspots({
   const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(true);
   const [analyzingId, setAnalyzingId] = useState<number | null>(null);
+  const [reload, setReload] = useState(0);
+  const [rescanning, setRescanning] = useState(false);
 
   const params = useMemo(() => filtersToParams(filters), [filters]);
   const filterKey = JSON.stringify(params);
@@ -55,7 +57,7 @@ export function Hotspots({
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterKey, limit, pulse, notify]);
+  }, [filterKey, limit, pulse, reload, notify]);
 
   useEffect(() => {
     let alive = true;
@@ -66,7 +68,7 @@ export function Hotspots({
     return () => {
       alive = false;
     };
-  }, [pulse]);
+  }, [pulse, reload]);
 
   const summarize = useMemo(() => {
     const urgent = items.filter((item) => item.importance === 'urgent').length;
@@ -76,6 +78,26 @@ export function Hotspots({
 
   // 搜索命中词（排除词不参与高亮）
   const highlightTerms = useMemo(() => parseSearchQuery(filters.q).include, [filters.q]);
+
+  // 当前生效的监控词（来自关键词页跳转或抽屉选择）
+  const activeKeyword = useMemo(
+    () => (filters.keyword ? keywords.find((item) => item.term === filters.keyword) : undefined),
+    [keywords, filters.keyword],
+  );
+
+  const rescanKeyword = async () => {
+    if (!activeKeyword) return;
+    setRescanning(true);
+    try {
+      const result = await api.collect([activeKeyword.id]);
+      notify(`「${activeKeyword.term}」扫描完成：新增 ${result.created ?? 0} 条信号`);
+      setReload((value) => value + 1);
+    } catch (error) {
+      notify((error as Error).message, 'error');
+    } finally {
+      setRescanning(false);
+    }
+  };
 
   const runSearch = async () => {
     const term = searchTerm.trim();
@@ -135,6 +157,48 @@ export function Hotspots({
       </div>
 
       <SearchBox value={filters.q} onCommit={(q) => setFilters({ q })} />
+
+      {activeKeyword && (
+        <div className="kw-context">
+          <div className="kw-context__head">
+            <span className="kw-context__label">MONITORED KEYWORD</span>
+            <b>{activeKeyword.term}</b>
+            {activeKeyword.domain && <em>{activeKeyword.domain}</em>}
+          </div>
+          <div className="kw-context__stats">
+            <span>
+              <i>24h</i>
+              {activeKeyword.stats?.last24h ?? 0}
+            </span>
+            <span>
+              <i>48h</i>
+              {activeKeyword.stats?.last48h ?? 0}
+            </span>
+            <span>
+              <i>7d</i>
+              {activeKeyword.stats?.last7d ?? 0}
+            </span>
+            <span>
+              <i>REL</i>
+              {activeKeyword.stats?.avgRelevance ?? '—'}
+            </span>
+            <span className={activeKeyword.stats?.pending ? 'is-warn' : ''}>
+              <i>待</i>
+              {activeKeyword.stats?.pending ?? 0}
+            </span>
+          </div>
+          <div className="kw-context__actions">
+            <button type="button" className="text-btn" onClick={rescanKeyword} disabled={rescanning}>
+              {rescanning ? '扫描中…' : '重新扫描该词'}
+            </button>
+            {filters.hours !== 'all' && (
+              <button type="button" className="text-btn text-btn--muted" onClick={() => setFilters({ hours: 'all' })}>
+                查看全部时间
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <HotspotFilters
         controls={controls}

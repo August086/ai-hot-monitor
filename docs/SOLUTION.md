@@ -2,8 +2,8 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 文档版本 | v1.7 |
-| 日期 | 2026-11-12 |
+| 文档版本 | v1.9 |
+| 日期 | 2026-11-16 |
 | 状态 | 已实现并通过验收（Twitter 数据源待密钥联调） |
 | 关联需求 | [REQUIREMENTS.md](./REQUIREMENTS.md) |
 | 技术选型 | [TECH_SELECTION.md](./TECH_SELECTION.md) |
@@ -26,6 +26,8 @@
 | 需求项 | 实现位置 | 说明 |
 | --- | --- | --- |
 | 关键词增删改查 | `server/src/routes/keywords.js` | 唯一约束、长度校验、启用开关 |
+| 关键词产出统计 | `db.js listKeywords`、`web/src/pages/Keywords.tsx` | 一条 LEFT JOIN 聚合算出 24h/48h/7d/平均相关度/待研判 |
+| 关键词跳转信号流 | `Keywords.tsx`、`hooks/useHotspotFilters.ts` | `#/hotspots?keyword=&hours=48&sort=recommended`，复用筛选页 |
 | 30 分钟定时抓取 | `server/src/scheduler.js` | 30 秒 tick 检查，间隔可在设置页改 |
 | 多数据源 | `server/src/services/sources/*` | HN + 国内科技媒体 RSS + 百度资讯；Bing/arXiv/GDELT 默认关闭 |
 | 质量闸门 | `sources/match.js`、`hackernews.js`、`baidu.js`、`collector.js` | 关键词守卫、HN 5/2、百度白名单、单源配额 |
@@ -199,7 +201,7 @@ web/
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/api/keywords` | 列表 |
+| GET | `/api/keywords` | 列表；每项附 `stats`（total / last24h / last48h / last7d / pending / avgRelevance / latestAt），由一条 LEFT JOIN 聚合查询算出 |
 | POST | `/api/keywords` | 新增，重复返回 409 |
 | PUT | `/api/keywords/:id` | 改名/范围/启停 |
 | DELETE | `/api/keywords/:id` | 删除（历史热点保留） |
@@ -282,6 +284,19 @@ web/
 - 前端交互：热点流页内搜索框 400ms 防抖提交；顶栏全局搜索回车携带 `?q=` 跳转热点流（其余筛选重置，保证搜索语境干净，≤880 移动端隐藏顶栏入口、走页内搜索）。
 - 结果增强：命中词以信号橙 `mark.hl` 高亮（长词优先，避免 open 吞掉 openai）；命中数「找到 N 条信号」；最近 10 条搜索历史存 `localStorage: neon-watch:search-history`，支持单条复用与一键清空。
 
+### 8.7 监控词 → 信号流
+
+**语义**：`keyword` 参数为**精确关联**（`hotspots.keyword = ?`），不再附带 `title LIKE`，避免“按词筛选”混入标题沾边的条目；模糊文本检索继续用 `q`。`hotspots(keyword)` 已建索引。
+
+**统计口径**：`listKeywords` 用一次 `LEFT JOIN hotspots ON h.keyword = k.term` + `SUM(CASE WHEN ...)` 聚合，时间窗口与列表一致的“有效时间”（`COALESCE(NULLIF(published_at,''), created_at)`），所以关键词页显示的 48h 条数与跳转后热点流看到的 `total` 必然一致（有 API 用例守着）。
+
+**前端链路**
+
+- 监控表：`产出 · 质量` 列（48h / 7d / REL / 待）+ 行内「信号 N」按钮 + 词名可点；7 天 0 产出标 `低产`，从未扫描标 `待首扫`。
+- 行内预览：点「信号 N」就地展开该词近 48h 的 5 条（`limit=5&sort=recommended`），复用 `HotspotCard`，可直接打开详情抽屉。
+- 跳转：`#/hotspots?keyword=<term>&hours=48&sort=recommended`，由于筛选状态本就与 URL 双向同步，落地即“只留该词 + 48h + 综合推荐”。
+- 回程语境：热点流检测到 `keyword` 生效时渲染 `.kw-context`（24h/48h/7d/REL/待 + 重新扫描该词 + 查看全部时间），让“单关键词结果页”的体验并入筛选页，不再单开页面。
+
 ---
 
 ## 9. AI 研判设计
@@ -305,6 +320,16 @@ web/
 **启发式规则**：标题党词（震惊/网传/据说…）计数、URL 缺失、摘要过短判为存疑；相关度按监控范围词命中与摘要长度估算；重要度按互动量与相关度分档。
 
 **并发**：批量研判 3 并发，单条失败不影响其他条目。
+
+### 9.1 离线评测（`npm run eval:ai`）
+
+relevance / importance / isReal 都是主观判断，人眼逐条验收既慢又无法发现“换模型/改提示词后的退化”。因此把它固化成可重复的指标：
+
+- **样本集** `server/test/fixtures/relevance-eval.json`：20 条人工标注，覆盖官方发布、事故、融资、教程、旧闻、标题党、营销稿、无关论文等；`relevance` 用**分档** `relevanceBand`（如 `[85,100]`）而不是精确分数，因为相关性本质是区间判断，且 relevance 与真假独立打分（传闻也可以高相关）。
+- **指标**：分档命中率、相关度 MAE、重要度准确率 + 混淆矩阵、真伪精确率/召回率/F1、Schema 成功率、摘要长度合规率、平均与 p95 延迟；`--repeat N` 额外输出相关度标准差作为稳定性。
+- **用法**：`--model` 对比模型、`--repeat 3` 测稳定性、`--fixture` 换样本、`--json-only` 供 CI 解析；报告写 `server/data/eval-report.json`（已 gitignore）。
+- **门禁**：分档命中 < 0.7 / 重要度 < 0.6 / Schema < 0.95 时退出码 1；无 Key 时跑启发式基线，只验流程不判失败。
+- **实测基线**（deepseek-v4.1-flash）：分档命中 100%（20/20）、MAE 6.0、重要度 85%、Schema 100%、平均延迟 1.5s；短板是 medium 级条目容易判成 low（3 例），已在报告中逐条列出。
 
 ---
 
@@ -459,14 +484,15 @@ web/
 
 | 类型 | 内容 | 结果 |
 | --- | --- | --- |
-| 单元 | URL 归一化、指纹一致性、标题相似度、关键词守卫、HN 门槛、RSS/百度解析、配额 | 26/26 通过 |
-| API | 健康、统计、热点分页、关键词 CRUD/409、设置校验、通知、密钥不外泄 | 13/13 通过 |
+| 单元 | URL 归一化、指纹一致性、标题相似度、关键词守卫、HN 门槛、RSS/百度解析、配额、搜索语法解析 | 34/34 通过 |
+| API | 健康、统计、热点分页、关键词 CRUD/409、设置校验、通知、密钥不外泄、搜索语法、命中位置分级、关键词统计与精确关联 | 28/28 通过 |
 | 集成 | 隔离库真实采集（HN + RSS + 百度）、去重、AI 批量研判、WS 推送、邮件发送 | 通过；9 条入库来自 4 个源，无 arXiv/GDELT/Bing |
 | 前端 | 四页渲染、筛选、抽屉、ESC 关闭、移动端布局、无 console 错误 | 通过 |
 | 视觉/可访问性 | 1440 与 390 宽四页截图；无横向溢出；对比度 ≥5.2:1；焦点环、触控尺寸、减弱动效 | 通过 |
 | 邮件 | QQ SMTP 自检 + 热点命中自动发送（浏览器+邮件双通道） | 通过，收件方已确认 |
 | AI | DeepSeek 主模型结构化输出、备用模型配置 | 通过 |
 | Skill | CLI 各命令与真实 API 联调 | 通过 |
+| AI 评测 | `npm run eval:ai` 真实模型跑 20 条样本 | 通过（分档 100% · 重要度 85% · Schema 100%） |
 
 `npm test` 可重复执行；`RUN_COLLECT=1 npm test` 会额外跑一轮真实采集。
 
@@ -496,3 +522,4 @@ web/
 | 2026-11-12 | v1.6 | 检索能力升级：新增 7 种排序（含综合推荐分）、等级/来源/状态多选、相关度与热度门槛、时间窗口与自定义区间、筛选抽屉、预设与自定义视图、URL 状态同步；新增 `relevance/engagement/published_at` 索引 |
 | 2026-11-16 | v1.7 | 搜索能力升级：多词 AND / `-排除` / `"短语"` 查询语法，检索范围扩至 6 字段（含 URL/作者/来源），命中高亮、搜索历史、热点流与顶栏双入口；新增搜索语法单测 8 项与 API 用例 5 项 |
 | 2026-11-16 | v1.8 | 搜索命中位置分级：`match_rank`（标题/摘要/原文/链接来源）随接口返回，时间向排序在搜索时按位置优先，卡片展示命中标识；新增 API 用例 3 项 |
+| 2026-11-16 | v1.9 | 监控词产出链路：`keyword` 改精确关联并补索引、`/api/keywords` 附产出统计、关键词页行内预览与产出榜、跳转信号流带词、热点流监控词语境条；新增 AI 研判离线评测（样本集 + `eval:ai`） |

@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS hotspots (
 
 CREATE INDEX IF NOT EXISTS idx_hotspots_created ON hotspots(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_hotspots_keyword ON hotspots(keyword_id);
+CREATE INDEX IF NOT EXISTS idx_hotspots_keyword_term ON hotspots(keyword);
 CREATE INDEX IF NOT EXISTS idx_hotspots_importance ON hotspots(importance);
 CREATE INDEX IF NOT EXISTS idx_hotspots_relevance ON hotspots(relevance DESC);
 CREATE INDEX IF NOT EXISTS idx_hotspots_engagement ON hotspots(engagement DESC);
@@ -104,6 +105,19 @@ const mapKeyword = (row) =>
     enabled: Boolean(row.enabled),
     createdAt: row.created_at,
     lastCheckedAt: row.last_checked_at,
+    ...(row.stats_total === undefined
+      ? {}
+      : {
+          stats: {
+            total: row.stats_total ?? 0,
+            last24h: row.stats_last24h ?? 0,
+            last48h: row.stats_last48h ?? 0,
+            last7d: row.stats_last7d ?? 0,
+            pending: row.stats_pending ?? 0,
+            avgRelevance: row.stats_avg_relevance === null ? null : Math.round(row.stats_avg_relevance),
+            latestAt: row.stats_latest_at ?? null,
+          },
+        }),
   };
 
 const mapHotspot = (row) =>
@@ -156,8 +170,34 @@ const mapNotification = (row) =>
   };
 
 // ---------- keywords ----------
-export const listKeywords = () =>
-  db.prepare('SELECT * FROM keywords ORDER BY created_at DESC').all().map(mapKeyword);
+/**
+ * 词表 + 每个词的产出统计（一次 LEFT JOIN 聚合完成）。
+ * 时间窗口用与列表一致的“有效时间”（发布时间优先、缺失回落到入库时间），
+ * 保证关键词页显示的条数与跳转到热点流后看到的条数一致。
+ */
+export const listKeywords = () => {
+  const nowMs = Date.now();
+  const since = (ms) => new Date(nowMs - ms).toISOString();
+  // JOIN 场景必须限定表别名，不能复用不带前缀的 EFFECTIVE_TIME
+  const hotspotTime = "COALESCE(NULLIF(h.published_at, ''), h.created_at)";
+  const rows = db
+    .prepare(
+      `SELECT k.*,
+         COUNT(h.id) AS stats_total,
+         SUM(CASE WHEN ${hotspotTime} >= ? THEN 1 ELSE 0 END) AS stats_last24h,
+         SUM(CASE WHEN ${hotspotTime} >= ? THEN 1 ELSE 0 END) AS stats_last48h,
+         SUM(CASE WHEN ${hotspotTime} >= ? THEN 1 ELSE 0 END) AS stats_last7d,
+         SUM(CASE WHEN h.ai_status IN ('pending', 'failed') THEN 1 ELSE 0 END) AS stats_pending,
+         AVG(h.relevance) AS stats_avg_relevance,
+         MAX(${hotspotTime}) AS stats_latest_at
+       FROM keywords k
+       LEFT JOIN hotspots h ON h.keyword = k.term
+       GROUP BY k.id
+       ORDER BY k.created_at DESC`,
+    )
+    .all(since(24 * 3600_000), since(48 * 3600_000), since(7 * 86_400_000));
+  return rows.map(mapKeyword);
+};
 
 export const getKeyword = (id) =>
   mapKeyword(db.prepare('SELECT * FROM keywords WHERE id = ?').get(Number(id)));
@@ -382,8 +422,9 @@ export const listHotspots = ({
   }
 
   if (keyword) {
-    where.push('(keyword = ? OR title LIKE ?)');
-    params.push(keyword, `%${keyword}%`);
+    // 按采集时命中的监控词精确关联；模糊文本检索交给 q
+    where.push('keyword = ?');
+    params.push(keyword);
   }
 
   if (q) {

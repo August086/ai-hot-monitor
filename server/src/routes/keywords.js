@@ -3,6 +3,7 @@ import {
   createKeyword,
   deleteKeyword,
   findKeywordByTerm,
+  getKeyword,
   listKeywords,
   updateKeyword,
 } from '../db.js';
@@ -29,7 +30,7 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
-  const existing = listKeywords().find((item) => item.id === Number(req.params.id));
+  const existing = getKeyword(req.params.id);
   if (!existing) return res.status(404).json({ error: '关键词不存在' });
 
   const payload = sanitize({ ...existing, ...(req.body ?? {}) });
