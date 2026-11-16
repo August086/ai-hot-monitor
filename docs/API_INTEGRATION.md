@@ -67,6 +67,21 @@ X-OpenRouter-Title: NEON WATCH - AI Hotspot Monitor
 | `moonshotai/kimi-k3` | 200 |
 | `z-ai/glm-5.3`、`qwen/qwen3.8-max-0902` | 200 |
 
+**同一接口的第二种用法：离线评测（2026-11-16）**
+
+`server/scripts/eval-ai.js` 不经过服务，直接调用 `analyzeHotspot`，因此评测与线上走完全相同的 Prompt、Schema 与降级链，只把输入换成固定样本：
+
+```bash
+npm run eval:ai                                   # 当前 .env 的主模型
+npm run eval:ai -- --model z-ai/glm-5.3           # 换模型对比
+npm run eval:ai -- --repeat 3                     # 同输入跑 3 次，看相关度标准差
+npm run eval:ai -- --json-only --no-write         # 只输出 JSON，供 CI 解析
+```
+
+- `--model` / `--fallback` 在导入 `config.js` **之前**写入 `process.env`，dotenv 不会覆盖已存在的变量，所以无需改 `.env`。
+- 报告写 `server/data/eval-report.json`（`server/data/` 已 gitignore），含每条样本的期望、实际、失败原因与逐次运行结果。
+- 判定口径：`relevance` 用区间分档比对（**不**做精确分数匹配），`isReal` 与真假独立评估。
+
 ---
 
 ## 2. twitterapi.io（X 搜索）

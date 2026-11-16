@@ -164,8 +164,10 @@ server/
       sources/huggingface.js 模型上新（默认关闭）
       sources/twitter.js   twitterapi.io（可选）
   scripts/seed.js          演示数据（手动执行）
-  test/sources.test.js     来源与质量闸门单测
+  scripts/eval-ai.js       AI 研判离线评测（npm run eval:ai）
+  test/sources.test.js     来源、质量闸门、搜索语法单测
   test/smoke.test.js       API 冒烟测试
+  test/fixtures/           relevance-eval.json（评测分档样本）
 web/
   src/
     App.tsx                布局、路由（hash）、WS 状态、Toast
