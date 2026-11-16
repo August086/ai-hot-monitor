@@ -1859,3 +1859,175 @@ body {
   }
 }
 
+/* ===== 语法搜索框（热点流 + 顶栏全局） ===== */
+.searchbox {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 8px 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(12, 14, 18, 0.92);
+}
+.searchbox:focus-within {
+  border-color: rgba(255, 92, 26, 0.5);
+  box-shadow: 0 0 0 3px rgba(255, 92, 26, 0.08);
+}
+.searchbox__prompt {
+  color: var(--cyan);
+  font-size: 13px;
+  font-weight: 700;
+}
+.searchbox input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  color: var(--text);
+}
+.searchbox input::placeholder {
+  color: var(--dim);
+  font-size: 11.5px;
+  letter-spacing: 0.3px;
+}
+.searchbox__clear {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+}
+.searchbox__clear:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+.searchbox__history {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+}
+.searchbox__history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px 8px;
+  color: var(--dim);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+}
+.searchbox__history-head button {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.searchbox__history-head button:hover {
+  color: var(--red);
+}
+.searchbox__history button[role='option'] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: left;
+}
+.searchbox__history button[role='option']:hover,
+.searchbox__history button[role='option']:focus-visible {
+  background: rgba(255, 92, 26, 0.1);
+}
+.searchbox__history-glyph {
+  color: var(--cyan);
+  font-size: 12px;
+}
+
+/* 热点流页内搜索：占满一行，位于筛选条上方 */
+.page--hotspots .searchbox {
+  max-width: 760px;
+  margin-bottom: 14px;
+}
+
+/* 顶栏全局搜索：紧凑版 */
+.masthead-search {
+  flex-shrink: 0;
+}
+.searchbox--compact {
+  height: 34px;
+  width: 224px;
+  padding: 0 6px 0 12px;
+  background: rgba(12, 14, 18, 0.75);
+}
+.searchbox--compact input {
+  font-size: 12px;
+}
+.searchbox--compact .searchbox__prompt {
+  font-size: 12px;
+}
+.searchbox--compact .searchbox__history {
+  width: 100%;
+}
+
+/* 搜索命中高亮 */
+mark.hl {
+  background: rgba(255, 92, 26, 0.16);
+  color: #ffa06a;
+  border-radius: 3px;
+  padding: 0 1px;
+  box-shadow: inset 0 -1px 0 rgba(255, 92, 26, 0.55);
+  font-weight: 600;
+}
+
+/* 搜索命中位置标识：标题 > AI 摘要 > 原文 > 链接来源，颜色由贴身程度递减 */
+.tag--match {
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+}
+.tag--match-0 {
+  color: var(--lime);
+  border-color: rgba(198, 255, 61, 0.45);
+  background: rgba(198, 255, 61, 0.08);
+}
+.tag--match-1 {
+  color: var(--magenta);
+  border-color: rgba(255, 176, 32, 0.45);
+  background: rgba(255, 176, 32, 0.07);
+}
+.tag--match-2,
+.tag--match-3 {
+  color: var(--dim);
+  border-color: var(--line);
+}
+
+@media (max-width: 1040px) {
+  .searchbox--compact {
+    width: 180px;
+  }
+}
+
+@media (max-width: 880px) {
+  /* 移动端顶栏只保留品牌与扫描按钮，搜索走热点流页内搜索框 */
+  .masthead-search {
+    display: none;
+  }
+  .searchbox {
+    height: 44px;
+  }
+}
+

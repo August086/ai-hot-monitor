@@ -110,6 +110,95 @@ await check('GET /api/hotspots 时间窗口过滤不超过窗口', async () => {
   }
 });
 
+await check('GET /api/hotspots 搜索：多词 AND 语法', async () => {
+  const probe = await api('/api/hotspots?limit=1');
+  const sample = probe.body.items[0];
+  if (!sample) return;
+  const word = sample.title.slice(0, 2);
+  const single = await api(`/api/hotspots?limit=50&q=${encodeURIComponent(word)}`);
+  const multi = await api(`/api/hotspots?limit=50&q=${encodeURIComponent(`${word} ${word}`)}`);
+  assert.equal(multi.body.total, single.body.total, '重复词不应改变结果数');
+});
+
+await check('GET /api/hotspots 搜索：排除词缩小结果集', async () => {
+  const probe = await api('/api/hotspots?limit=1');
+  const sample = probe.body.items[0];
+  if (!sample) return;
+  const word = sample.title.slice(0, 2);
+  const base = await api(`/api/hotspots?limit=50&q=${encodeURIComponent(word)}`);
+  const excluded = await api(`/api/hotspots?limit=50&q=${encodeURIComponent(`${word} -${word}`)}`);
+  assert.equal(excluded.body.total, 0, '命中词同时被排除应无结果');
+  assert.ok(excluded.body.total <= base.body.total);
+});
+
+await check('GET /api/hotspots 搜索：短语与切词结果不同', async () => {
+  const probe = await api('/api/hotspots?limit=5');
+  const sample = probe.body.items.find((item) => item.title.length >= 4);
+  if (!sample) return;
+  const phrase = sample.title.slice(0, 4);
+  const phraseResult = await api(`/api/hotspots?limit=50&q=${encodeURIComponent(`"${phrase}"`)}`);
+  assert.equal(phraseResult.status, 200);
+  for (const item of phraseResult.body.items) {
+    const haystack = [item.title, item.snippet, item.summary, item.url, item.author, item.source]
+      .filter(Boolean)
+      .join(' ');
+    assert.ok(haystack.includes(phrase), `短语未命中：${item.title}`);
+  }
+});
+
+await check('GET /api/hotspots 搜索：URL/作者字段可命中', async () => {
+  const probe = await api('/api/hotspots?limit=50');
+  const sample = probe.body.items.find((item) => item.url.length > 12);
+  if (!sample) return;
+  const marker = sample.url.slice(0, 12);
+  const result = await api(`/api/hotspots?limit=50&q=${encodeURIComponent(marker)}`);
+  assert.ok(result.body.total >= 1, 'URL 子串应能命中');
+});
+
+await check('GET /api/hotspots 搜索：qMode=title 只匹配标题', async () => {
+  const probe = await api('/api/hotspots?limit=50');
+  const sample = probe.body.items.find((item) => item.snippet && !item.title.includes(item.snippet.slice(0, 4)));
+  if (!sample) return;
+  const onlySnippet = sample.snippet.slice(0, 4);
+  const result = await api(`/api/hotspots?limit=50&q=${encodeURIComponent(onlySnippet)}&qMode=title`);
+  for (const item of result.body.items) {
+    assert.ok(item.title.includes(onlySnippet), `仅标题模式命中了非标题条目：${item.title}`);
+  }
+});
+
+await check('GET /api/hotspots 搜索：命中位置分级排序（标题 > 摘要 > 原文 > 链接）', async () => {
+  const { status, body } = await api('/api/hotspots?limit=50&q=AI');
+  assert.equal(status, 200);
+  const ranks = body.items.map((item) => item.matchRank);
+  for (const rank of ranks) assert.equal(typeof rank, 'number', '搜索时应返回 matchRank');
+  const sorted = [...ranks].sort((a, b) => a - b);
+  assert.deepEqual(ranks, sorted, `命中位置未按分级排序：${ranks.join(',')}`);
+});
+
+await check('GET /api/hotspots 搜索：matchRank 与命中字段一致', async () => {
+  const { body } = await api('/api/hotspots?limit=50&q=ChatGPT');
+  for (const item of body.items) {
+    const has = (text) => (text || '').toLowerCase().includes('chatgpt');
+    if (has(item.title)) {
+      assert.equal(item.matchRank, 0, `标题命中应为 0：${item.title}`);
+    } else if (has(item.summary)) {
+      assert.equal(item.matchRank, 1, `摘要命中应为 1：${item.title}`);
+    } else if (has(item.snippet)) {
+      assert.equal(item.matchRank, 2, `原文命中应为 2：${item.title}`);
+    } else {
+      assert.equal(item.matchRank, 3, `链接/来源命中的条目应为 3：${item.title}`);
+    }
+  }
+});
+
+await check('GET /api/hotspots 搜索：显式排序不被命中位置覆盖', async () => {
+  const { status, body } = await api('/api/hotspots?limit=50&q=AI&sort=relevance');
+  assert.equal(status, 200);
+  const values = body.items.filter((item) => item.relevance !== null).map((item) => item.relevance);
+  const sorted = [...values].sort((a, b) => b - a);
+  assert.deepEqual(values, sorted, '相关度排序应保持严格降序');
+});
+
 const term = `测试词-${Date.now()}`;
 let keywordId = null;
 

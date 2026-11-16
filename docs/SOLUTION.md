@@ -2,7 +2,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 文档版本 | v1.6 |
+| 文档版本 | v1.7 |
 | 日期 | 2026-11-12 |
 | 状态 | 已实现并通过验收（Twitter 数据源待密钥联调） |
 | 关联需求 | [REQUIREMENTS.md](./REQUIREMENTS.md) |
@@ -208,7 +208,7 @@ web/
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/api/hotspots` | 过滤：`limit/offset/importance/source/isReal/status/keyword/q/qMode/days/hours/from/to/dated/notified/relevanceMin/engagementMin`；`importance/source/status/isReal` 支持逗号多值；排序：`sort=latest\|importance\|relevance\|engagement\|recommended\|pending\|unnotified`，`dir=asc\|desc` |
+| GET | `/api/hotspots` | 过滤：`limit/offset/importance/source/isReal/status/keyword/q/qMode/days/hours/from/to/dated/notified/relevanceMin/engagementMin`；`importance/source/status/isReal` 支持逗号多值；`q` 支持**搜索语法**（空格多词 AND、`-` 前缀排除、`"双引号短语"`，未闭合引号按子串容错），默认匹配 title/snippet/summary/url/author/source 6 字段（`COALESCE` 保证 NULL 安全，`ESCAPE '\'` 转义 LIKE 通配符），`qMode=title` 时仅匹配标题；排序：`sort=latest\|importance\|relevance\|engagement\|recommended\|pending\|unnotified`，`dir=asc\|desc` |
 | GET | `/api/hotspots/:id` | 详情 |
 | POST | `/api/hotspots/search` | 即时抓取，body `{term, domain?, analyze?}` |
 | POST | `/api/hotspots/:id/analyze` | 单条重新研判 |
@@ -273,6 +273,14 @@ web/
 - 4 个内置预设 + 本机保存的自定义视图（`localStorage: neon-watch:filter-views`）。
 - 筛选状态写入 hash 查询段（`#/hotspots?sort=recommended&importance=urgent,high`），刷新、前进后退与分享均可还原。
 - 点击卡片上的 `#关键词` 标签可直接把该词加入筛选。
+
+**搜索实现**（`db.js parseSearchQuery` + 前端 `web/src/search.ts` + `components/SearchBox.tsx`）
+
+- 语法解析：`(-?)(?:"([^"]*)"|(\S+))` 逐 token 切分，前后端共用同一套规则（JS/TS 双实现），保证高亮词与后端命中条件一致。
+- 检索范围：默认 6 字段（title/snippet/summary/url/author/source），`COALESCE(field,'')` 规避 NULL 三值逻辑，`ESCAPE '\'` 让用户输入的 `% _ \` 按字面匹配。
+- 命中位置分级：`CASE` 表达式在 SELECT 中算出 `match_rank`（0 标题 / 1 AI 摘要 / 2 原文片段 / 3 链接·作者·来源），随列表返回；「最新」「综合推荐」两种排序在搜索时把 `match_rank` 提到首位，显式选择等级/相关度/待研判等排序时则尊重用户意图。卡片据此显示 `命中·标题`（酸性绿）/ `命中·AI 摘要`（琥珀）/ `命中·原文`（灰）标识，避免“原文沾边”的条目与“标题直击”的条目混排。
+- 前端交互：热点流页内搜索框 400ms 防抖提交；顶栏全局搜索回车携带 `?q=` 跳转热点流（其余筛选重置，保证搜索语境干净，≤880 移动端隐藏顶栏入口、走页内搜索）。
+- 结果增强：命中词以信号橙 `mark.hl` 高亮（长词优先，避免 open 吞掉 openai）；命中数「找到 N 条信号」；最近 10 条搜索历史存 `localStorage: neon-watch:search-history`，支持单条复用与一键清空。
 
 ---
 
@@ -486,3 +494,5 @@ web/
 | 2026-11-12 | v1.4 | 可读性与可访问性打磨：对比度基线（--dim 3.67→5.47:1）、微标签字号下限、移动端触控尺寸、键盘焦点环、走马灯可聚焦暂停、触屏常显操作入口；环图中心文案修正为 SIGNALS |
 | 2026-11-12 | v1.5 | 来源可靠性 v2：关闭 Bing/arXiv/GDELT；新增百度资讯（白名单媒体）与 4 个国内科技媒体 RSS；加入关键词守卫、HN 5/2 门槛、单源入库上限与 AI 40% 配额 |
 | 2026-11-12 | v1.6 | 检索能力升级：新增 7 种排序（含综合推荐分）、等级/来源/状态多选、相关度与热度门槛、时间窗口与自定义区间、筛选抽屉、预设与自定义视图、URL 状态同步；新增 `relevance/engagement/published_at` 索引 |
+| 2026-11-16 | v1.7 | 搜索能力升级：多词 AND / `-排除` / `"短语"` 查询语法，检索范围扩至 6 字段（含 URL/作者/来源），命中高亮、搜索历史、热点流与顶栏双入口；新增搜索语法单测 8 项与 API 用例 5 项 |
+| 2026-11-16 | v1.8 | 搜索命中位置分级：`match_rank`（标题/摘要/原文/链接来源）随接口返回，时间向排序在搜索时按位置优先，卡片展示命中标识；新增 API 用例 3 项 |

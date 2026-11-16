@@ -2,7 +2,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 文档版本 | v1.4 |
+| 文档版本 | v1.5 |
 | 日期 | 2026-11-12 |
 | 状态 | 主体已实现并验收；Twitter 源待密钥联调 |
 | 关联文档 | [方案设计](./SOLUTION.md) · [技术选型](./TECH_SELECTION.md) · [接口对接](./API_INTEGRATION.md) |
@@ -107,6 +107,10 @@
 | 多维筛选 | 等级（多选）/ 来源（多选）/ 可信度（含未研判）/ 相关度 / 热度 / 时间窗口与自定义区间 / 关键词 / 通知状态 / 文本 + 排序 + 时效 | P0 |
 | 排序能力 | 最新发布 / 等级 / 相关度 / 热度 / 综合推荐 / 待研判 / 未通知 | P0 |
 | 筛选视图 | 4 个内置预设（早间巡检、高优先待写、存疑待核实、待研判）+ 自定义视图本机保存 + URL 同步 | P1 |
+| 搜索语法 | 空格多词 AND、`-` 前缀排除、双引号精确短语；范围覆盖标题/摘要/片段/URL/作者/来源 6 字段，可切仅标题 | P0 |
+| 搜索入口 | 热点流页内搜索框（防抖 400ms）+ 顶栏全局搜索（回车跳转热点流）；移动端走页内搜索框 | P0 |
+| 搜索结果增强 | 命中词信号橙高亮、命中数实时显示、最近 10 条搜索历史（本机保存、可清空） | P1 |
+| 命中位置区分 | 按「标题 > AI 摘要 > 原文 > 链接来源」分级，搜索时标题/摘要命中优先排序，卡片标注命中位置 | P0 |
 | 详情抽屉 | 相关性、判定依据、摘要、原文跳转、重新研判 | P1 |
 | 响应式 | 375 / 768 / 1024 / 1440 四档均可用，无横向滚动 | P0 |
 | 可访问性 | 见 5.3 | P0 |
@@ -244,7 +248,7 @@ OPENROUTER_FALLBACK_MODEL=moonshotai/kimi-k3
 | POST | `/api/keywords` | 新增，重复 409 |
 | PUT | `/api/keywords/:id` | 改名/范围/启停 |
 | DELETE | `/api/keywords/:id` | 删除，历史热点保留 |
-| GET | `/api/hotspots` | `limit/offset/importance/source/isReal/status/keyword/q/days/dated/sort` |
+| GET | `/api/hotspots` | `limit/offset/importance/source/isReal/status/keyword/q/qMode/days/hours/from/to/dated/notified/relevanceMin/engagementMin/sort`；`q` 支持多词 AND / `-排除` / `"短语"` 语法 |
 | GET | `/api/hotspots/:id` | 详情 |
 | POST | `/api/hotspots/search` | 即时抓取 `{term, domain?, analyze?}` |
 | POST | `/api/hotspots/:id/analyze` | 单条重新研判 |
@@ -305,3 +309,5 @@ OPENROUTER_FALLBACK_MODEL=moonshotai/kimi-k3
 | 2026-11-12 | v1.2 | 新增可访问性非功能需求（对比度/字号/触控/焦点/减弱动效）；更新验收结果与性能基线；视觉语言更名为 SIGNAL DESK |
 | 2026-11-12 | v1.3 | 可靠性优先：关闭 Bing/arXiv/GDELT；新增百度资讯与 4 个国内科技媒体 RSS；增加关键词守卫、HN 互动门槛、百度白名单与单源配额 |
 | 2026-11-12 | v1.4 | 检索能力升级：等级/来源/可信度改为多选，新增相关度与热度门槛、时间窗口与自定义区间、7 种排序（含综合推荐分）、预设与自定义筛选视图、URL 状态同步 |
+| 2026-11-16 | v1.5 | 搜索能力升级：多词/排除/短语查询语法、6 字段检索范围、命中高亮、搜索历史、顶栏全局搜索入口 |
+| 2026-11-16 | v1.6 | 搜索命中位置分级：标题 > AI 摘要 > 原文 > 链接来源，搜索时按位置优先排序并标注在卡片上 |

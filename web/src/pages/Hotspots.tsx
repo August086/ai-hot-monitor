@@ -3,8 +3,10 @@ import type { Hotspot, Keyword } from '../types';
 import { api } from '../api';
 import { HotspotCard } from '../components/HotspotCard';
 import { HotspotFilters } from '../components/HotspotFilters';
+import { SearchBox } from '../components/SearchBox';
 import { Icon, Panel } from '../components/Primitives';
 import { filtersToParams, useHotspotFilters } from '../hooks/useHotspotFilters';
+import { parseSearchQuery } from '../search';
 
 export function Hotspots({
   pulse,
@@ -72,6 +74,9 @@ export function Hotspots({
     return { urgent, pending };
   }, [items]);
 
+  // 搜索命中词（排除词不参与高亮）
+  const highlightTerms = useMemo(() => parseSearchQuery(filters.q).include, [filters.q]);
+
   const runSearch = async () => {
     const term = searchTerm.trim();
     if (!term) return;
@@ -129,6 +134,8 @@ export function Hotspots({
         </form>
       </div>
 
+      <SearchBox value={filters.q} onCommit={(q) => setFilters({ q })} />
+
       <HotspotFilters
         controls={controls}
         total={total}
@@ -136,7 +143,7 @@ export function Hotspots({
       />
 
       <div className="feed-meta">
-        <span>匹配 {total} 条</span>
+        <span>{filters.q ? `找到 ${total} 条信号` : `匹配 ${total} 条`}</span>
         <span className="feed-meta__warn">紧急 {summarize.urgent}</span>
         <span className="feed-meta__pending">待研判 {summarize.pending}</span>
         {filters.q && (
@@ -161,6 +168,7 @@ export function Hotspots({
               onAnalyze={analyze}
               onFilterKeyword={(term) => setFilters({ keyword: term })}
               analyzing={analyzingId === item.id}
+              highlight={highlightTerms}
             />
           ))}
         {!loading && !items.length && (

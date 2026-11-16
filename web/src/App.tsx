@@ -45,6 +45,16 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
+  // 顶栏全局搜索：携带搜索词跳转热点流（其余筛选回到默认，保证搜索语境干净）
+  const onSearch = useCallback((term: string) => {
+    setView('hotspots');
+    const search = term ? `?q=${encodeURIComponent(term)}` : '';
+    if (window.location.hash !== `#/hotspots${search}`) {
+      window.location.hash = `/hotspots${search}`;
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
   useEffect(() => {
     const onHash = () => setView(viewFromHash());
     window.addEventListener('hashchange', onHash);
@@ -155,6 +165,7 @@ export default function App() {
         collecting={collecting}
         scanning={scanning}
         onScan={runScan}
+        onSearch={onSearch}
         aiReady={aiReady}
         headlines={headlines}
       >

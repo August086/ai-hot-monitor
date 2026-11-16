@@ -272,6 +272,44 @@ const asList = (value) => {
   return raw.map((item) => String(item).trim()).filter(Boolean);
 };
 
+/**
+ * 搜索语法解析：空格分词（多词 AND）、`-` 前缀排除、双引号精确短语。
+ * 例：`openai "新模型" -股价` → include=[openai, 新模型]，exclude=[股价]。
+ * 未闭合的引号按普通子串容错处理。
+ */
+export const parseSearchQuery = (input) => {
+  const include = [];
+  const exclude = [];
+  const text = String(input ?? '').trim();
+  if (!text) return { include, exclude };
+  const re = /(-?)(?:"([^"]*)"|(\S+))/g;
+  let match;
+  while ((match = re.exec(text))) {
+    const value = (match[2] !== undefined ? match[2] : match[3] || '').trim();
+    if (!value || value === '-') continue;
+    (match[1] === '-' ? exclude : include).push(value);
+  }
+  return { include, exclude };
+};
+
+// LIKE 通配符转义，保证用户输入的 % _ \ 按字面匹配
+const escapeLike = (value) => value.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+
+// 全字段检索范围；qMode=title 时只匹配标题
+const SEARCH_FIELDS = ['title', 'snippet', 'summary', 'url', 'author', 'source'];
+
+/**
+ * 命中位置分级：标题 0 < AI 摘要 1 < 原文片段 2 < 链接/作者/来源 3。
+ * 数字越小越“贴身”，用于搜索时把标题/摘要命中排在原文沾边的前面。
+ */
+const MATCH_TIERS = [
+  { rank: 0, fields: ['title'] },
+  { rank: 1, fields: ['summary'] },
+  { rank: 2, fields: ['snippet'] },
+  { rank: 3, fields: ['url', 'author', 'source'] },
+];
+export const MATCH_RANK_LABEL = ['标题', 'AI 摘要', '原文', '链接/来源'];
+
 const dateBound = (value, endOfDay = false) => {
   if (!value) return null;
   const parsed = new Date(value);
@@ -305,6 +343,9 @@ export const listHotspots = ({
 } = {}) => {
   const where = [];
   const params = [];
+  // 命中位置表达式的占位符必须排在 WHERE 之前（出现在 SELECT 里）
+  const matchRankParams = [];
+  let matchRankExpr = null;
 
   const importanceList = asList(importance).filter((value) => IMPORTANCE_VALUES.includes(value));
   if (importanceList.length) {
@@ -346,12 +387,36 @@ export const listHotspots = ({
   }
 
   if (q) {
-    if (String(qMode) === 'title') {
-      where.push('title LIKE ?');
-      params.push(`%${q}%`);
-    } else {
-      where.push('(title LIKE ? OR snippet LIKE ? OR summary LIKE ?)');
-      params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+    const { include, exclude } = parseSearchQuery(q);
+    const fields = String(qMode) === 'title' ? ['title'] : SEARCH_FIELDS;
+    // COALESCE 保证 NULL 字段（如 author）不产生三值逻辑误判
+    const matchAny = `(${fields.map((field) => `COALESCE(${field}, '') LIKE ? ESCAPE '\\'`).join(' OR ')})`;
+    for (const term of include) {
+      const like = `%${escapeLike(term)}%`;
+      where.push(matchAny);
+      params.push(...fields.map(() => like));
+    }
+    for (const term of exclude) {
+      const like = `%${escapeLike(term)}%`;
+      where.push(`NOT ${matchAny}`);
+      params.push(...fields.map(() => like));
+    }
+
+    // 命中位置分级：任一命中词出现在标题即为 0，其次摘要 1、原文 2、链接/来源 3
+    if (include.length) {
+      const tiers = String(qMode) === 'title' ? MATCH_TIERS.slice(0, 1) : MATCH_TIERS;
+      const branches = tiers.map((tier) => {
+        const ors = [];
+        for (const term of include) {
+          const like = `%${escapeLike(term)}%`;
+          for (const field of tier.fields) {
+            ors.push(`COALESCE(${field}, '') LIKE ? ESCAPE '\\'`);
+            matchRankParams.push(like);
+          }
+        }
+        return `WHEN (${ors.join(' OR ')}) THEN ${tier.rank}`;
+      });
+      matchRankExpr = `CASE ${branches.join(' ')} ELSE ${MATCH_TIERS.length} END`;
     }
   }
 
@@ -413,17 +478,32 @@ export const listHotspots = ({
     pending: `CASE WHEN ai_status IN ('pending', 'failed') THEN 0 ELSE 1 END, ${EFFECTIVE_TIME} DESC`,
     unnotified: `CASE WHEN notified = 0 THEN 0 ELSE 1 END, ${EFFECTIVE_TIME} DESC`,
   };
-  const orderBy = orders[sort] || orders.latest;
+  const effectiveSort = orders[sort] ? sort : 'latest';
+  // 搜索时「最新 / 综合推荐」两种时间向排序把命中位置提到首位：
+  // 标题命中 > AI 摘要 > 原文 > 链接/来源，同档内再按原规则。
+  // 显式选择等级/相关度/待研判等排序时尊重用户意图，不插入命中位置。
+  const rankLead =
+    matchRankExpr && (effectiveSort === 'latest' || effectiveSort === 'recommended') ? 'match_rank ASC, ' : '';
+  const orderBy = rankLead + orders[effectiveSort];
+  const rankSelect = matchRankExpr ? `, (${matchRankExpr}) AS match_rank` : '';
 
   const rows = db
     .prepare(
-      `SELECT * FROM hotspots ${clause}
+      `SELECT *${rankSelect} FROM hotspots ${clause}
        ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,
     )
-    .all(...params, Math.min(Number(limit) || 50, 200), Number(offset) || 0);
+    .all(
+      ...matchRankParams,
+      ...params,
+      Math.min(Number(limit) || 50, 200),
+      Number(offset) || 0,
+    );
   const total = db.prepare(`SELECT COUNT(*) AS c FROM hotspots ${clause}`).get(...params).c;
-  return { items: rows.map(mapHotspot), total };
+  return {
+    items: rows.map((row) => ({ ...mapHotspot(row), matchRank: row.match_rank ?? null })),
+    total,
+  };
 };
 
 export const updateAnalysis = (id, analysis) => {

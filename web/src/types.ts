@@ -53,6 +53,8 @@ export interface Hotspot {
   aiReason: string | null;
   notified: boolean;
   createdAt: string;
+  /** 搜索命中位置分级：0 标题 / 1 AI 摘要 / 2 原文 / 3 链接、作者、来源；未搜索时为 null */
+  matchRank?: number | null;
 }
 
 export interface Stats {

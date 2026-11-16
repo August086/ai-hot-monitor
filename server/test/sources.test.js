@@ -8,6 +8,7 @@ import { matchesKeyword, parseFeed } from '../src/services/sources/rss.js';
 import { inDomainList } from '../src/services/sources/gdelt.js';
 import { isWhitelistedMedia, parseBaiduResults, parseRelativeTime } from '../src/services/sources/baidu.js';
 import { qualityScore, selectForAnalysis } from '../src/services/collector.js';
+import { parseSearchQuery } from '../src/db.js';
 
 // 固定阈值，避免本地 .env 影响断言
 config.quality.hnMinPoints = 5;
@@ -137,6 +138,53 @@ check('新鲜条目优先于陈旧条目', () => {
   const fresh = qualityScore({ tier: 'B', engagement: 0, publishedAt: new Date(now - 3600_000).toISOString() }, now);
   const stale = qualityScore({ tier: 'B', engagement: 0, publishedAt: new Date(now - 47 * 3600_000).toISOString() }, now);
   assert.ok(fresh > stale, `fresh=${fresh} stale=${stale}`);
+});
+
+console.log('\n[N] 搜索语法解析');
+check('空输入返回空条件', () => {
+  const { include, exclude } = parseSearchQuery('   ');
+  assert.deepEqual(include, []);
+  assert.deepEqual(exclude, []);
+});
+
+check('空格分词为多词 AND', () => {
+  const { include, exclude } = parseSearchQuery('openai 发布');
+  assert.deepEqual(include, ['openai', '发布']);
+  assert.deepEqual(exclude, []);
+});
+
+check('减号前缀进入排除列表', () => {
+  const { include, exclude } = parseSearchQuery('openai -股价 -融资');
+  assert.deepEqual(include, ['openai']);
+  assert.deepEqual(exclude, ['股价', '融资']);
+});
+
+check('引号内容作为整串短语', () => {
+  const { include } = parseSearchQuery('"deepseek v4" 发布');
+  assert.deepEqual(include, ['deepseek v4', '发布']);
+});
+
+check('排除短语 -"xx yy" 支持引号', () => {
+  const { include, exclude } = parseSearchQuery('openai -"旧闻 翻炒"');
+  assert.deepEqual(include, ['openai']);
+  assert.deepEqual(exclude, ['旧闻 翻炒']);
+});
+
+check('未闭合引号按子串容错', () => {
+  const { include } = parseSearchQuery('"deepseek v4');
+  assert.deepEqual(include, ['"deepseek', 'v4']);
+});
+
+check('孤立的减号被忽略', () => {
+  const { include, exclude } = parseSearchQuery('- openai');
+  assert.deepEqual(include, ['openai']);
+  assert.deepEqual(exclude, []);
+});
+
+check('混合语法全部生效', () => {
+  const { include, exclude } = parseSearchQuery('openai "新模型" -股价');
+  assert.deepEqual(include, ['openai', '新模型']);
+  assert.deepEqual(exclude, ['股价']);
 });
 
 console.log('\n[6] 百度资讯解析与白名单');

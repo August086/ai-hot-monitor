@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Icon } from './Primitives';
 import type { IconName } from './Primitives';
 import { HoverBorderGradient } from './ui/hover-border-gradient';
+import { SearchBox } from './SearchBox';
 import type { LiveStatus } from '../hooks/useLive';
 
 export type ViewKey = 'dashboard' | 'hotspots' | 'keywords' | 'settings';
@@ -33,6 +34,7 @@ export function Layout({
   collecting,
   scanning,
   onScan,
+  onSearch,
   aiReady,
   headlines,
   children,
@@ -44,6 +46,7 @@ export function Layout({
   collecting: boolean;
   scanning: boolean;
   onScan: () => void;
+  onSearch: (term: string) => void;
   aiReady: boolean;
   headlines: TickerItem[];
   children: ReactNode;
@@ -89,6 +92,15 @@ export function Layout({
         </nav>
 
         <div className="masthead__right">
+          <div className="masthead-search">
+            <SearchBox
+              compact
+              value=""
+              onCommit={(term) => term && onSearch(term)}
+              placeholder="搜索信号…"
+              label="全局搜索热点"
+            />
+          </div>
           <div className={`live-pill live-pill--${status}`}>
             <i />
             {STATUS_TEXT[status]}
