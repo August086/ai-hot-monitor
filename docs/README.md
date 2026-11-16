@@ -14,7 +14,7 @@
 - **去重**：URL 指纹 + 中文标题相似度双保险
 - **实时通知**：WebSocket 浏览器推送 + SMTP 邮件，按等级阈值过滤
 - **控制台**：SIGNAL DESK 编辑部风格仪表盘、热点流、关键词、设置四页，响应式且符合可访问性基线
-- **Agent Skill**：可被其他 AI 调用的 `.trae/skills/neon-watch`
+- **Agent Skill**：`.trae/skills/neon-watch`（基础命令）+ `skills/hotspot-intel`（组合能力：简报 / 核实 / 体检，同步到 `.trae/skills/hotspot-intel`）
 
 ## 技术栈
 
@@ -59,9 +59,12 @@ web/
     hooks/              useLive.ts（WS）· useHotspotFilters.ts（筛选 ⇄ URL 同步）
     search.ts           搜索语法解析与高亮切分（与后端同规则）
     styles.css
-.trae/skills/neon-watch/
-  SKILL.md
-  scripts/watch.mjs
+.trae/skills/
+  neon-watch/            基础命令 skill（CRUD 薄封装）
+  hotspot-intel/         hotspot-intel 的同步副本（由 skills/sync.mjs 生成）
+skills/
+  sync.mjs               真源 → .trae/skills 同步器（支持 --check）
+  hotspot-intel/         可移植 skill：SKILL.md + references/ + scripts/intel.mjs
 docs/
 ```
 

@@ -2,7 +2,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 文档版本 | v1.7 |
+| 文档版本 | v1.8 |
 | 日期 | 2026-11-16 |
 | 状态 | 主体已实现并验收；Twitter 源待密钥联调 |
 | 关联文档 | [方案设计](./SOLUTION.md) · [技术选型](./TECH_SELECTION.md) · [接口对接](./API_INTEGRATION.md) |
@@ -130,6 +130,9 @@
 | 常用命令 | stats / hotspots / search / analyze / keywords / collect / notifications | P1 |
 | 统一输出 | 全部命令输出 JSON，便于 Agent 解析 | P1 |
 | 使用约束 | 先查后抓、实时抓取需用户明确要求、不得编造数据 | P0 |
+| 组合能力 Skill | `skills/hotspot-intel`：brief（简报）、verify（选题前核实）、audit（监控词体检），附 5 条工作流 | P1 |
+| 分层文档 | SKILL.md 只放路由与硬约束，细节拆到 `references/`（commands / workflows / scoring）按需加载 | P1 |
+| 双副本同步 | `skills/` 为可移植真源，`skills/sync.mjs` 同步到 `.trae/skills/`，`--check` 检测漂移 | P1 |
 
 ## 5. 非功能需求
 
@@ -318,3 +321,4 @@ OPENROUTER_FALLBACK_MODEL=moonshotai/kimi-k3
 | 2026-11-16 | v1.5 | 搜索能力升级：多词/排除/短语查询语法、6 字段检索范围、命中高亮、搜索历史、顶栏全局搜索入口 |
 | 2026-11-16 | v1.6 | 搜索命中位置分级：标题 > AI 摘要 > 原文 > 链接来源，搜索时按位置优先排序并标注在卡片上 |
 | 2026-11-16 | v1.7 | 监控词产出链路：关键词页产出统计/行内预览/产出榜、跳转信号流自动带词 + 48h、热点流监控词语境条；`keyword` 筛选改为精确关联；新增 AI 研判离线评测 |
+| 2026-11-16 | v1.8 | Agent Skill 封装：新增 `skills/hotspot-intel`（简报 / 核实 / 体检 + 分层 references），`skills/sync.mjs` 同步到 `.trae/skills` |

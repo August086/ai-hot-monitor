@@ -177,6 +177,10 @@ web/
     styles.css             设计令牌与基础组件样式
     styles-v2.css          SIGNAL DESK 布局、响应式与可访问性覆盖层
 .trae/skills/neon-watch/   Agent Skill（SKILL.md + scripts/watch.mjs）
+.trae/skills/hotspot-intel/ hotspot-intel 同步副本（由 skills/sync.mjs 生成）
+skills/
+  sync.mjs               真源 → .trae/skills 同步器（--check 检测漂移）
+  hotspot-intel/         可移植 Skill：SKILL.md + references/ + scripts/intel.mjs
 ```
 
 ---
@@ -465,9 +469,12 @@ relevance / importance / isReal 都是主观判断，人眼逐条验收既慢又
 
 ## 15. Agent Skill
 
-- 位置：`.trae/skills/neon-watch/`，标准 `SKILL.md` + `scripts/watch.mjs`。
+- 位置：`.trae/skills/neon-watch/`（基础命令）与 `skills/hotspot-intel/`（组合能力，同步副本在 `.trae/skills/hotspot-intel/`）。
 - 命令：`stats / hotspots / get / search / analyze / keywords / add-keyword / toggle-keyword / delete-keyword / collect / pending / notifications / health`。
-- 输出统一 JSON，便于 Agent 解析；`WATCH_API` 可指向远端实例。
+- 组合命令：`brief`（简报，`--md` 出 markdown）、`verify`（同事件交叉 + 来源数 → `confidence`）、`audit`（监控词健康标签 + 重复词）。
+- 分层：`SKILL.md` 只保留路由表与硬约束（<150 行），细节在 `references/commands.md`、`workflows.md`、`scoring.md`，agent 按需加载。
+- 双副本：`skills/` 为可移植真源；`node skills/sync.mjs` 复制到 `.trae/skills/`，`--check` 逐字节比对并在漂移时退出码 1。
+- 输出统一 JSON，便于 Agent 解析；`WATCH_API` 可指向远端实例；零第三方依赖，可整目录复制到其它 agent。
 - 约束：先查后抓；实时抓取需用户明确要求；`isReal=false` 与 `heuristic` 必须标注；禁止编造数据。
 
 ---
@@ -525,3 +532,4 @@ relevance / importance / isReal 都是主观判断，人眼逐条验收既慢又
 | 2026-11-16 | v1.7 | 搜索能力升级：多词 AND / `-排除` / `"短语"` 查询语法，检索范围扩至 6 字段（含 URL/作者/来源），命中高亮、搜索历史、热点流与顶栏双入口；新增搜索语法单测 8 项与 API 用例 5 项 |
 | 2026-11-16 | v1.8 | 搜索命中位置分级：`match_rank`（标题/摘要/原文/链接来源）随接口返回，时间向排序在搜索时按位置优先，卡片展示命中标识；新增 API 用例 3 项 |
 | 2026-11-16 | v1.9 | 监控词产出链路：`keyword` 改精确关联并补索引、`/api/keywords` 附产出统计、关键词页行内预览与产出榜、跳转信号流带词、热点流监控词语境条；新增 AI 研判离线评测（样本集 + `eval:ai`） |
+| 2026-11-16 | v2.0 | Agent Skill 封装：新增可移植 `skills/hotspot-intel`（brief / verify / audit + 分层 references + 零依赖 CLI），`skills/sync.mjs` 同步到 `.trae/skills`；不改动服务端与既有 skill |
